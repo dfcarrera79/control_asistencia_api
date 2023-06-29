@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "control-asistencia"
+version = "0.1.0"
+description = "Backend para la aplicacion de control de asistencia de Farmacias Americanas y la distribuidora Apromed"
+authors = ["dfcarrera79 <44879886+dfcarrera79@users.noreply.github.com>"]
+readme = "README.md"
+packages = [{include = "control_asistencia"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "^0.98.0"
+python-dotenv = "^1.0.0"
+sqlalchemy = "^2.0.17"
+pyjwt = {extras = ["crypto"], version = "^2.7.0"}
+pycryptodomex = "^3.18.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
