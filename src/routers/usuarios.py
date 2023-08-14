@@ -23,20 +23,20 @@ router = fastapi.APIRouter()
 
 @router.get("/validar_usuario")
 async def validar_cliente(id: str, clave: str):
-    sql = f"SELECT * FROM usuario WHERE TRIM(ruc_cliente) LIKE '{id.strip()}'"
+    sql = f"SELECT TUsuario.usu_nomape, TUsuario.usu_clave, TUsuario.usu_login, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS full_name FROM rol.TEmpleado INNER JOIN usuario.TUsuario ON TEmpleado.codigo = TUsuario.codigo_empleado WHERE TRIM(TUsuario.usu_login) LIKE '{id.strip()}'"
     try:
-        with Session(engine1) as session:
+        with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
                 return {
                     "error": "S",
-                    "mensaje": f"No se encuentra un usuario registrado con el RUC Nro. {id} en el sistema de reclamos",
+                    "mensaje": f"No se encuentra un usuario registrado como {id} en el sistema de control de asistencia",
                     "objetos": rows,
                 }
 
             clienteApp = [row._asdict() for row in rows]
 
-            if clienteApp[0]["clave"] == utils.codify(clave):
+            if clienteApp[0]["usu_clave"] == utils.codify(clave):
                 # Generate authentication token
                 token = utils.generate_token(id, clave)
                 return {"error": "N", "mensaje": "", "objetos": clienteApp, 'token': token}
@@ -52,9 +52,9 @@ async def validar_cliente(id: str, clave: str):
 
 @router.get("/obtener_usuario")
 async def obtener_usuario(id: str):
-    sql = f"SELECT * FROM usuario WHERE TRIM(ruc_cliente) LIKE '{id.strip()}'"
+    sql = f"SELECT TUsuario.usu_nomape, TUsuario.usu_clave, TUsuario.usu_login, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS full_name FROM rol.TEmpleado INNER JOIN usuario.TUsuario ON TEmpleado.codigo = TUsuario.codigo_empleado WHERE TRIM(TUsuario.usu_login) LIKE '{id.strip()}'"
     try:
-        with Session(engine1) as session:
+        with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
                 return {
@@ -64,7 +64,8 @@ async def obtener_usuario(id: str):
                 }
 
             usuario = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": usuario[0]['email']}
+            return {"error": "N", "mensaje": "", "objetos": usuario[0]}
+            # return {"error": "N", "mensaje": "", "objetos": usuario[0]['email']}
     except Exception as e:
         return {"error": "S", "mensaje": str(e)}
 
@@ -108,8 +109,6 @@ async def resetear_clave_acceso(request: Request):
     data = json.loads(request_body)
     ruc = data['ruc']
     clave = data['clave']
-    print('[RUC]: ', ruc)
-    print('[CLAVE]: ', clave)
     try:
         nueva_clave = utils.codify(clave)
         sql = f"UPDATE usuario SET clave = '{nueva_clave}' WHERE ruc_cliente = '{ruc.strip()}' RETURNING ruc_cliente"
@@ -118,6 +117,6 @@ async def resetear_clave_acceso(request: Request):
             rows = session.execute(text(sql)).fetchall()
             session.commit()
             objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": objetos}
+            return {"error": "N", "mensaje": "Cambio de clave exitoso", "objetos": objetos}
     except Exception as error:
         return {"error": "S", "mensaje": str(error)}
