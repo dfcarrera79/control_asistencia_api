@@ -20,12 +20,11 @@ router = fastapi.APIRouter()
 async def registrar_dispositivo(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
-    ruc = data['ruc']
+    usuario_codigo = data['usuario_codigo']
     id_dispositivo = data['id_dispositivo']
     try:
-        sql = f"INSERT INTO dispositivo (ruc_cliente, id_dispositivo) VALUES ('{ruc.strip()}', '{id_dispositivo.strip()}') RETURNING id"
-        print('[SQL]: ', sql)
-        with Session(engine1) as session:
+        sql = f"INSERT INTO comun.tdispositivo (usuario_codigo, id_dispositivo) VALUES ('{usuario_codigo}', '{id_dispositivo.strip()}') RETURNING codigo"
+        with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
             objetos = [row._asdict() for row in rows]
@@ -36,11 +35,11 @@ async def registrar_dispositivo(request: Request):
 
 @router.get("/validar_dispositivo")
 async def validar_dispositivo(id: str):
-    sql = f"SELECT * FROM dispositivo WHERE TRIM(id_dispositivo) LIKE '{id.strip()}'"
-    print('[SQL]: ', sql)
+    sql = f"SELECT * FROM comun.tdispositivo WHERE TRIM(id_dispositivo) LIKE '{id.strip()}'"
     try:
-        with Session(engine1) as session:
+        with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
+            print('[ROWS]: ', rows)
             if len(rows) == 0:
                 return {
                     "error": "S",
@@ -49,7 +48,6 @@ async def validar_dispositivo(id: str):
                 }
 
             dispositivo = [row._asdict() for row in rows]
-            print('[DISPOSITIVO]: ', dispositivo)
             return {"error": "N", "mensaje": "", "objetos": dispositivo[0]}
     except Exception as e:
         return {"error": "S", "mensaje": str(e)}

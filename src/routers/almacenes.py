@@ -1,4 +1,5 @@
 import json
+import math
 import fastapi
 from src import config
 from src.utils import utils
@@ -50,7 +51,6 @@ async def registrar_coordenadas(request: Request):
     long = data['long']
     try:
         sql = f"INSERT INTO comun.tcoordenadas (alm_codigo, lat, long) VALUES ('{alm_codigo}', '{lat}', '{long}') RETURNING codigo"
-        print('[SQL]: ', sql)
         token = request.headers.get('token')
         if not utils.verify_token(token):
             raise HTTPException(
@@ -73,7 +73,6 @@ async def actualizar_coordenadas(request: Request):
     long = data['long']
     try:
         sql = f"UPDATE comun.tcoordenadas SET lat = '{lat}', long = '{long}' WHERE alm_codigo = '{alm_codigo}' RETURNING codigo"
-        print('[SQL]: ', sql)
         token = request.headers.get('token')
         if not utils.verify_token(token):
             raise HTTPException(
@@ -110,9 +109,28 @@ async def obtener_coordenadas(request: Request, alm_codigo: int):
         return {"error": "S", "mensaje": str(e)}
 
 
+@router.get("/obtener_coordenadas_almacen")
+async def obtener_coordenadas(alm_nomcom: str):
+    sql = f"SELECT lat, long FROM comun.tcoordenadas INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE alm_nomcom LIKE '{alm_nomcom}'"
+    try:
+        with Session(engine2) as session:
+            rows = session.execute(text(sql)).fetchall()
+            if len(rows) == 0:
+                return {
+                    "error": "S",
+                    "mensaje": "",
+                    "objetos": rows,
+                }
+
+            coordenadas = [row._asdict() for row in rows]
+            return {"error": "N", "mensaje": "", "objetos": coordenadas}
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}
+
+
 @router.get("/obtener_lugares")
 async def obtener_lugares(request: Request):
-    sql = f"SELECT a.alm_codigo, a.alm_nomcom, a.alm_calles, a.alm_ciud, c.lat, c.long FROM comun.talmacen a INNER JOIN comun.tcoordenadas c ON a.alm_codigo = c.alm_codigo"
+    sql = f"SELECT c.codigo, a.alm_nomcom, a.alm_calles, a.alm_ciud, c.lat, c.long FROM comun.talmacen a INNER JOIN comun.tcoordenadas c ON a.alm_codigo = c.alm_codigo"
     token = request.headers.get('token')
     try:
         if not utils.verify_token(token):
@@ -140,8 +158,7 @@ async def designar_lugar_empleado(request: Request):
     usuario_codigo = data['usuario_codigo']
     alm_codigo = data['alm_codigo']
     try:
-        sql = f"UPDATE comun.tcoordenadas SET usuario_codigo = '{usuario_codigo}' WHERE alm_codigo = '{alm_codigo}' RETURNING codigo"
-        print('[SQL]: ', sql)
+        sql = f"INSERT INTO comun.tlugaresasignados (coordenadas_codigo, usuario_codigo) VALUES ('{alm_codigo}', '{usuario_codigo}') ON CONFLICT (usuario_codigo) DO UPDATE SET coordenadas_codigo = {alm_codigo} RETURNING codigo"
         token = request.headers.get('token')
         if not utils.verify_token(token):
             raise HTTPException(
@@ -150,6 +167,52 @@ async def designar_lugar_empleado(request: Request):
             rows = session.execute(text(sql)).fetchall()
             session.commit()
             objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Las coordenadas se han actualizado", "objetos": objetos}
+            return {"error": "N", "mensaje": "Empleado asignado a lugar de trabajo", "objetos": objetos}
     except Exception as error:
         return {"error": "S", "mensaje": str(error)}
+
+
+@router.get("/obtener_lugar_empleado")
+async def obtener_lugar_empleado(request: Request):
+    sql = f"SELECT talmacen.alm_nomcom AS lugares FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo"
+    token = request.headers.get('token')
+
+    try:
+        if not utils.verify_token(token):
+            raise HTTPException(
+                status_code=401, detail="Usuario no autorizado")
+        with Session(engine2) as session:
+            rows = session.execute(text(sql)).fetchall()
+            if len(rows) == 0:
+                return {
+                    "error": "S",
+                    "mensaje": "",
+                    "objetos": rows,
+                }
+
+            lugares = [row._asdict() for row in rows]
+            return {"error": "N", "mensaje": "", "objetos": lugares}
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}
+
+
+@router.get("/obtener_lugares_asignados")
+async def obtener_lugares_asignados(request: Request):
+    sql = f"SELECT alm_codigo FROM comun.tcoordenadas ORDER BY alm_codigo"
+    token = request.headers.get('token')
+    try:
+        if not utils.verify_token(token):
+            raise HTTPException(
+                status_code=401, detail="Usuario no autorizado")
+        with Session(engine2) as session:
+            rows = session.execute(text(sql)).fetchall()
+            if len(rows) == 0:
+                return {
+                    "error": "S",
+                    "mensaje": "",
+                    "objetos": rows,
+                }
+
+            return {"error": "N", "mensaje": "", "objetos": rows}
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}

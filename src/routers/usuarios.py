@@ -23,7 +23,7 @@ router = fastapi.APIRouter()
 
 @router.get("/validar_usuario")
 async def validar_cliente(id: str, clave: str):
-    sql = f"SELECT TUsuario.usu_nomape, TUsuario.usu_clave, TUsuario.usu_login, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS full_name FROM rol.TEmpleado INNER JOIN usuario.TUsuario ON TEmpleado.codigo = TUsuario.codigo_empleado WHERE TRIM(TUsuario.usu_login) LIKE '{id.strip()}'"
+    sql = f"SELECT TUsuario.usu_nomape, TUsuario.usu_clave, TUsuario.usu_login, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS full_name, TEmpleado.codigo FROM rol.TEmpleado INNER JOIN usuario.TUsuario ON TEmpleado.codigo = TUsuario.codigo_empleado WHERE TRIM(TUsuario.usu_login) LIKE '{id.strip()}'"
     try:
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
@@ -112,7 +112,6 @@ async def resetear_clave_acceso(request: Request):
     try:
         nueva_clave = utils.codify(clave)
         sql = f"UPDATE usuario SET clave = '{nueva_clave}' WHERE ruc_cliente = '{ruc.strip()}' RETURNING ruc_cliente"
-        print('[SQL]: ', sql)
         with Session(engine1) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
