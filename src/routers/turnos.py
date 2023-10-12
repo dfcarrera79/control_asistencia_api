@@ -38,8 +38,6 @@ async def registrar_turno(request: Request):
     if (inicio2 != "00:00" and fin2 != "00:00"):
         sql = f"INSERT INTO comun.tturnos (nombre, dias_trabajados, inicio1, fin1, inicio2, fin2) VALUES ('{nombre}', '{dias_trabajados}', '{inicio1}', '{fin1}', '{inicio2}', '{fin2}') RETURNING codigo"
 
-    print('[SQL]: ', sql)
-
     token = request.headers.get('token')
 
     try:

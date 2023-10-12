@@ -102,3 +102,50 @@ def verify_token(token: str):
         return True
     except jwt.DecodeError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+
+def traducir_dia(dia_ingles):
+    dias = {
+        "monday": "lunes",
+        "tuesday": "martes",
+        "wednesday": "miercoles",
+        "thursday": "jueves",
+        "friday": "viernes",
+        "saturday": "sabado",
+        "sunday": "domingo"
+    }
+    return dias.get(dia_ingles, "Día no válido")
+
+
+def calcular_horas(inicio1, fin1, inicio2, fin2, entrada, salida):
+    horas_trabajadas = 0
+
+    if inicio1 <= entrada.time() <= fin1:
+        if salida:
+            horas_trabajadas += (salida - entrada).seconds / 3600
+
+    if inicio2 and fin2:
+        if inicio2 <= entrada.time() <= fin2:
+            if salida:
+                horas_trabajadas += (salida - entrada).seconds / 3600
+
+    return horas_trabajadas
+
+
+def calcular_atrasos(inicio1, fin1, inicio2, fin2, entrada, salida):
+    atrasos = 0
+
+    if inicio1 <= entrada.time() <= fin1:
+
+        atraso = entrada - datetime.combine(entrada.date(), inicio1)
+        if atraso.total_seconds() > 300:
+            atrasos += atraso.total_seconds() / 60
+
+    if inicio2 and fin2:
+        if inicio2 <= entrada.time() <= fin2:
+
+            atraso = entrada - datetime.combine(entrada.date(), inicio2)
+            if atraso.total_seconds() > 300:
+                atrasos += atraso.total_seconds() / 60
+
+    return atrasos
