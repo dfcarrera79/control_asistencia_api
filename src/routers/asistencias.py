@@ -84,6 +84,218 @@ async def obtener_numero_paginas(request: Request, usuario_codigo, fecha_desde, 
         return {"error": "S", "mensaje": str(e)}
 
 
+@router.get("/obtener_atrasos")
+async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_hasta):
+    token = request.headers.get('token')
+
+    fecha_hasta = datetime.strptime(fecha_hasta, '%Y/%m/%d')
+    fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
+
+    query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM comun.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN comun.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada"
+
+    with Session(engine2) as session:
+        rows = session.execute(text(query)).fetchall()
+        if len(rows) == 0:
+            return {
+                "error": "S",
+                "mensaje": "",
+                "objetos": rows,
+            }
+
+        asistencias = [row._asdict() for row in rows]
+
+    sql = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
+
+    try:
+        if not utils.verify_token(token):
+            raise HTTPException(
+                status_code=401, detail="Usuario no autorizado")
+
+        with Session(engine2) as session:
+            turnos = session.execute(text(sql)).fetchall()
+
+        atrasos = []
+
+        for turno in turnos:
+            dias_trabajados = turno["dias_trabajados"]
+
+            if isinstance(dias_trabajados, list):
+                inicio1 = datetime.strptime(turno["inicio1"], '%H:%M').time()
+                fin1 = datetime.strptime(turno["fin1"], '%H:%M').time()
+                if turno["inicio2"] and turno["fin2"]:
+                    inicio2 = datetime.strptime(
+                        turno["inicio2"], '%H:%M').time()
+                    fin2 = datetime.strptime(turno["fin2"], '%H:%M').time()
+                else:
+                    inicio2 = None
+                    fin2 = None
+
+                for asistencia in asistencias:
+                    entrada = asistencia["entrada"]
+
+                    for rango in dias_trabajados:
+                        entrada = asistencia["entrada"]
+
+                        fecha_inicio = datetime.strptime(
+                            rango["from"], "%Y/%m/%d")
+                        fecha_fin = datetime.strptime(
+                            rango["to"], "%Y/%m/%d") + timedelta(days=1) - timedelta(seconds=1)
+
+                        if fecha_inicio <= entrada <= fecha_fin:
+                            if inicio1 <= entrada.time() <= fin1:
+
+                                atraso = entrada - \
+                                    datetime.combine(entrada.date(), inicio1)
+                                if atraso.total_seconds() > 300:
+                                    atrasos.append(asistencia)
+
+                            if inicio2 and fin2:
+                                if inicio2 <= entrada.time() <= fin2:
+
+                                    atraso = entrada - \
+                                        datetime.combine(
+                                            entrada.date(), inicio2)
+                                    if atraso.total_seconds() > 300:
+                                        atrasos.append(asistencia)
+
+            else:
+                inicio1 = datetime.strptime(turno["inicio1"], '%H:%M').time()
+                fin1 = datetime.strptime(turno["fin1"], '%H:%M').time()
+                if turno["inicio2"] and turno["fin2"]:
+                    inicio2 = datetime.strptime(
+                        turno["inicio2"], '%H:%M').time()
+                    fin2 = datetime.strptime(turno["fin2"], '%H:%M').time()
+                else:
+                    inicio2 = None
+                    fin2 = None
+
+                for asistencia in asistencias:
+                    entrada = asistencia["entrada"]
+
+                    dia_asistencia = entrada.strftime("%A").lower()
+                    dia_asistencia = utils.traducir_dia(dia_asistencia)
+
+                    # Verifica si el día de la asistencia está programado para trabajar
+                    if dias_trabajados.get(dia_asistencia) == "true":
+                        # Ahora, verifica si la asistencia se registra en ese día
+                        if dia_asistencia == "lunes" and turno["dias_trabajados"].get("lunes") == "true":
+                            if inicio1 <= entrada.time() <= fin1:
+
+                                atraso = entrada - \
+                                    datetime.combine(entrada.date(), inicio1)
+                                if atraso.total_seconds() > 300:
+                                    atrasos.append(asistencia)
+
+                            if inicio2 and fin2:
+                                if inicio2 <= entrada.time() <= fin2:
+
+                                    atraso = entrada - \
+                                        datetime.combine(
+                                            entrada.date(), inicio2)
+                                    if atraso.total_seconds() > 300:
+                                        atrasos.append(asistencia)
+                        elif dia_asistencia == "martes" and turno["dias_trabajados"].get("martes") == "true":
+                            if inicio1 <= entrada.time() <= fin1:
+
+                                atraso = entrada - \
+                                    datetime.combine(entrada.date(), inicio1)
+                                if atraso.total_seconds() > 300:
+                                    atrasos.append(asistencia)
+
+                            if inicio2 and fin2:
+                                if inicio2 <= entrada.time() <= fin2:
+
+                                    atraso = entrada - \
+                                        datetime.combine(
+                                            entrada.date(), inicio2)
+                                    if atraso.total_seconds() > 300:
+                                        atrasos.append(asistencia)
+                        if dia_asistencia == "miercoles" and turno["dias_trabajados"].get("miercoles") == "true":
+                            if inicio1 <= entrada.time() <= fin1:
+
+                                atraso = entrada - \
+                                    datetime.combine(entrada.date(), inicio1)
+                                if atraso.total_seconds() > 300:
+                                    atrasos.append(asistencia)
+
+                            if inicio2 and fin2:
+                                if inicio2 <= entrada.time() <= fin2:
+
+                                    atraso = entrada - \
+                                        datetime.combine(
+                                            entrada.date(), inicio2)
+                                    if atraso.total_seconds() > 300:
+                                        atrasos.append(asistencia)
+                        elif dia_asistencia == "jueves" and turno["dias_trabajados"].get("jueves") == "true":
+                            if inicio1 <= entrada.time() <= fin1:
+
+                                atraso = entrada - \
+                                    datetime.combine(entrada.date(), inicio1)
+                                if atraso.total_seconds() > 300:
+                                    atrasos.append(asistencia)
+
+                            if inicio2 and fin2:
+                                if inicio2 <= entrada.time() <= fin2:
+
+                                    atraso = entrada - \
+                                        datetime.combine(
+                                            entrada.date(), inicio2)
+                                    if atraso.total_seconds() > 300:
+                                        atrasos.append(asistencia)
+                        if dia_asistencia == "viernes" and turno["dias_trabajados"].get("viernes") == "true":
+                            if inicio1 <= entrada.time() <= fin1:
+
+                                atraso = entrada - \
+                                    datetime.combine(entrada.date(), inicio1)
+                                if atraso.total_seconds() > 300:
+                                    atrasos.append(asistencia)
+
+                            if inicio2 and fin2:
+                                if inicio2 <= entrada.time() <= fin2:
+
+                                    atraso = entrada - \
+                                        datetime.combine(
+                                            entrada.date(), inicio2)
+                                    if atraso.total_seconds() > 300:
+                                        atrasos.append(asistencia)
+                        elif dia_asistencia == "sabado" and turno["dias_trabajados"].get("sabado") == "true":
+                            if inicio1 <= entrada.time() <= fin1:
+
+                                atraso = entrada - \
+                                    datetime.combine(entrada.date(), inicio1)
+                                if atraso.total_seconds() > 300:
+                                    atrasos.append(asistencia)
+
+                            if inicio2 and fin2:
+                                if inicio2 <= entrada.time() <= fin2:
+
+                                    atraso = entrada - \
+                                        datetime.combine(
+                                            entrada.date(), inicio2)
+                                    if atraso.total_seconds() > 300:
+                                        atrasos.append(asistencia)
+                        elif dia_asistencia == "domingo" and turno["dias_trabajados"].get("domingo") == "true":
+                            if inicio1 <= entrada.time() <= fin1:
+
+                                atraso = entrada - \
+                                    datetime.combine(entrada.date(), inicio1)
+                                if atraso.total_seconds() > 300:
+                                    atrasos.append(asistencia)
+
+                            if inicio2 and fin2:
+                                if inicio2 <= entrada.time() <= fin2:
+
+                                    atraso = entrada - \
+                                        datetime.combine(
+                                            entrada.date(), inicio2)
+                                    if atraso.total_seconds() > 300:
+                                        atrasos.append(asistencia)
+
+        return {"error": "N", "mensaje": "", "objetos": atrasos}
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}
+
+
 @router.get("/obtener_asistencias")
 async def obtener_asistencias(request: Request, usuario_codigo, fecha_desde, fecha_hasta, numero_de_pagina, registros_por_pagina):
     token = request.headers.get('token')
