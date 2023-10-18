@@ -338,7 +338,15 @@ async def empleados_asignados(lugar: str):
         return objetos
 
 
-async def calcular(request: Request, lugar: str, usuario_codigo, fecha_desde, fecha_hasta):
+async def empleados_asistencias():
+    sql = "SELECT usuario_codigo FROM comun.tasistencias ORDER BY usuario_codigo"
+    with Session(engine2) as session:
+        rows = session.execute(text(sql)).fetchall()
+        objetos = [row._asdict() for row in rows]
+        return objetos
+
+
+async def calcular(lugar: str, usuario_codigo, fecha_desde, fecha_hasta):
 
     fecha_desde = unquote(fecha_desde)
     fecha_hasta = unquote(fecha_hasta)
@@ -346,6 +354,8 @@ async def calcular(request: Request, lugar: str, usuario_codigo, fecha_desde, fe
     fecha_hasta = datetime.strptime(fecha_hasta, '%Y/%m/%d')
     fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
     query = f"SELECT entrada, salida FROM comun.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
+
+    print('[QUERY]', query)
 
     sql = "SELECT templeado.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo"
     if lugar not in [None, '', 'N']:
@@ -488,10 +498,24 @@ async def calcular_horas_atrasos(request: Request, lugar: str, fecha_desde: str,
             raise HTTPException(
                 status_code=401, detail="Usuario no autorizado")
         with Session(engine2) as session:
-            empleados = await empleados_asignados(lugar)
+            employees = await empleados_asignados(lugar)
+
+            codigos = await empleados_asistencias()
+
+            # Extraer valores únicos de 'usuario_codigo'
+            unique_user_codes = set(codigo['usuario_codigo']
+                                    for codigo in codigos)
+            print('[CODIGOS]: ', unique_user_codes)
+
+            user_codes = list(unique_user_codes)
+
+            empleados = [
+                employee for employee in employees if employee['codigo'] in user_codes]
+
+            print(empleados)
 
             for empleado in empleados:
-                calculos = await calcular(request, lugar, empleado['codigo'], fecha_desde, fecha_hasta)
+                calculos = await calcular(lugar, empleado['codigo'], fecha_desde, fecha_hasta)
 
                 empleado['horas_trabajadas'] = calculos['horas_trabajadas']
                 empleado['atrasos'] = calculos['atrasos']
