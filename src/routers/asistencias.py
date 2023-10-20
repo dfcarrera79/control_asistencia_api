@@ -2,10 +2,7 @@ from datetime import datetime, timedelta
 from datetime import time
 from urllib.parse import unquote
 import json
-import math
-import unicodedata
 import fastapi
-import locale
 from src import config
 from src.utils import utils
 from sqlalchemy.orm import Session
@@ -103,6 +100,12 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
             }
 
         asistencias = [row._asdict() for row in rows]
+        excepciones = await excepciones_autorizadas(usuario_codigo)
+        nuevas_asistencias = []
+        for diccionario in asistencias:
+            fecha = diccionario['entrada'].strftime('%Y/%m/%d')
+            if fecha not in excepciones:
+                nuevas_asistencias.append(diccionario)
 
     sql = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
 
@@ -130,7 +133,7 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
                     inicio2 = None
                     fin2 = None
 
-                for asistencia in asistencias:
+                for asistencia in nuevas_asistencias:
                     entrada = asistencia["entrada"]
 
                     for rango in dias_trabajados:
@@ -169,7 +172,7 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
                     inicio2 = None
                     fin2 = None
 
-                for asistencia in asistencias:
+                for asistencia in nuevas_asistencias:
                     entrada = asistencia["entrada"]
 
                     dia_asistencia = entrada.strftime("%A").lower()
@@ -319,7 +322,16 @@ async def obtener_asistencias(request: Request, usuario_codigo, fecha_desde, fec
                     "objetos": rows,
                 }
             asistencias = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": asistencias}
+
+            excepciones = await excepciones_autorizadas(usuario_codigo)
+
+            nuevas_asistencias = []
+            for diccionario in asistencias:
+                fecha = diccionario['entrada'].strftime('%Y/%m/%d')
+                if fecha not in excepciones:
+                    nuevas_asistencias.append(diccionario)
+
+            return {"error": "N", "mensaje": "", "objetos": nuevas_asistencias}
 
     except Exception as error:
         return {"error": "S", "mensaje": str(error)}
@@ -338,6 +350,17 @@ async def empleados_asignados(lugar: str):
         return objetos
 
 
+async def excepciones_autorizadas(codigo: int):
+    sql = f"SELECT usuario_codigo, dias FROM comun.texcepciones WHERE usuario_codigo = {codigo} AND autorizado = true;"
+
+    with Session(engine2) as session:
+        rows = session.execute(text(sql)).fetchall()
+        objetos = [row._asdict() for row in rows]
+        dias_list = [d['dias'] for d in objetos]
+        dias_flat = [date for sublist in dias_list for date in sublist]
+        return dias_flat
+
+
 async def empleados_asistencias():
     sql = "SELECT usuario_codigo FROM comun.tasistencias ORDER BY usuario_codigo"
     with Session(engine2) as session:
@@ -346,25 +369,13 @@ async def empleados_asistencias():
         return objetos
 
 
-async def calcular(lugar: str, usuario_codigo, fecha_desde, fecha_hasta):
+async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
 
-    fecha_desde = unquote(fecha_desde)
-    fecha_hasta = unquote(fecha_hasta)
-
-    fecha_hasta = datetime.strptime(fecha_hasta, '%Y/%m/%d')
+    fecha_hasta = datetime.strptime(unquote(fecha_hasta), '%Y/%m/%d')
     fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
-    query = f"SELECT entrada, salida FROM comun.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
+    query = f"SELECT entrada, salida FROM comun.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{unquote(fecha_desde)}' AND '{fecha_hasta}'"
 
-    print('[QUERY]', query)
-
-    sql = "SELECT templeado.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo"
-    if lugar not in [None, '', 'N']:
-        sql += f" WHERE talmacen.alm_nomcom LIKE '{lugar}'"
-
-    sql += " ORDER BY nombre_completo"
-
-    with Session(engine2) as session:
-        rows = session.execute(text(sql)).fetchall()
+    excepciones = await excepciones_autorizadas(usuario_codigo)
 
     with Session(engine2) as session:
         rows = session.execute(text(query)).fetchall()
@@ -376,6 +387,13 @@ async def calcular(lugar: str, usuario_codigo, fecha_desde, fecha_hasta):
             }
 
         asistencias = [row._asdict() for row in rows]
+
+        nuevas_asistencias = []
+
+        for diccionario in asistencias:
+            fecha = diccionario['entrada'].strftime('%Y/%m/%d')
+            if fecha not in excepciones:
+                nuevas_asistencias.append(diccionario)
 
     query = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
 
@@ -406,12 +424,8 @@ async def calcular(lugar: str, usuario_codigo, fecha_desde, fecha_hasta):
                 inicio2 = None
                 fin2 = None
 
-            for asistencia in asistencias:
-                entrada = asistencia["entrada"]
-                salida = asistencia["salida"]
-
+            for asistencia in nuevas_asistencias:
                 for rango in dias_trabajados:
-
                     entrada = asistencia["entrada"]
                     salida = asistencia["salida"]
 
@@ -421,6 +435,7 @@ async def calcular(lugar: str, usuario_codigo, fecha_desde, fecha_hasta):
                         rango["to"], "%Y/%m/%d") + timedelta(days=1) - timedelta(seconds=1)
 
                     if fecha_inicio <= entrada <= fecha_fin:
+
                         horas_trabajadas += utils.calcular_horas(
                             inicio1, fin1, inicio2, fin2, entrada, salida)
                         atrasos += utils.calcular_atrasos(
@@ -437,7 +452,7 @@ async def calcular(lugar: str, usuario_codigo, fecha_desde, fecha_hasta):
                 inicio2 = None
                 fin2 = None
 
-            for asistencia in asistencias:
+            for asistencia in nuevas_asistencias:
                 entrada = asistencia["entrada"]
                 salida = asistencia["salida"]
 
@@ -505,17 +520,15 @@ async def calcular_horas_atrasos(request: Request, lugar: str, fecha_desde: str,
             # Extraer valores únicos de 'usuario_codigo'
             unique_user_codes = set(codigo['usuario_codigo']
                                     for codigo in codigos)
-            print('[CODIGOS]: ', unique_user_codes)
 
             user_codes = list(unique_user_codes)
 
             empleados = [
                 employee for employee in employees if employee['codigo'] in user_codes]
 
-            print(empleados)
-
             for empleado in empleados:
-                calculos = await calcular(lugar, empleado['codigo'], fecha_desde, fecha_hasta)
+
+                calculos = await calcular(empleado['codigo'], fecha_desde, fecha_hasta)
 
                 empleado['horas_trabajadas'] = calculos['horas_trabajadas']
                 empleado['atrasos'] = calculos['atrasos']
