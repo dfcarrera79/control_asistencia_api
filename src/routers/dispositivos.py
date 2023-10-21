@@ -39,7 +39,6 @@ async def validar_dispositivo(id: str):
     try:
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
-            print('[ROWS]: ', rows)
             if len(rows) == 0:
                 return {
                     "error": "S",

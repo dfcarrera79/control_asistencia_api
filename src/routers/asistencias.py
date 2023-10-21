@@ -20,16 +20,41 @@ engine2 = create_engine(db_uri2)
 router = fastapi.APIRouter()
 
 
+async def horarios_asignados(codigo: int):
+    sql = f"SELECT turno_codigo FROM comun.tturnosasignados WHERE usuario_codigo = {codigo}"
+    with Session(engine2) as session:
+        rows = session.execute(text(sql)).fetchall()
+        objetos = [row._asdict() for row in rows]
+        return objetos
+
+
+async def lugar_asignado(codigo: int):
+    sql = f"SELECT coordenadas_codigo FROM comun.tlugaresasignados WHERE usuario_codigo = {codigo}"
+    with Session(engine2) as session:
+        rows = session.execute(text(sql)).fetchall()
+        objetos = [row._asdict() for row in rows]
+        return objetos
+
+
 @router.post("/registrar_entrada")
 async def registrar_entrada(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
     employee_id = data['employee_id']
 
-    sql = f"INSERT INTO comun.tasistencias (usuario_codigo, entrada) VALUES ({employee_id}, NOW()) RETURNING codigo"
+    horarios = await horarios_asignados(employee_id)
+
+    if len(horarios) == 0:
+        return {"error": "S", "mensaje": "No tiene horarios asignados"}
+
+    lugar = await lugar_asignado(employee_id)
+
+    if len(lugar) == 0:
+        return {"error": "S", "mensaje": "No tiene un lugar de trabajo asignado"}
+
+    sql = f"INSERT INTO comun.tasistencias (usuario_codigo, entrada, horarios, lugar_asignado) VALUES ({employee_id}, NOW(), '{json.dumps(horarios)}', {lugar[0]['coordenadas_codigo']}) RETURNING codigo"
 
     try:
-
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -397,15 +422,15 @@ async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
 
     query = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
 
-    with Session(engine2) as session:
-        turnos = session.execute(text(query)).fetchall()
+    horarios = await get_horarios(usuario_codigo)
 
-        if len(turnos) == 0:
-            return {
-                "error": "S",
-                "mensaje": "",
-                "objetos": turnos,
-            }
+    print('[HORARIOS]: ', horarios)
+
+    turnos = []
+
+    for horario in horarios:
+        info = await get_horario_info(horario)
+        turnos.append(info[0])
 
     horas_trabajadas = 0
     atrasos = 0
@@ -504,6 +529,62 @@ async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
     }
 
 
+async def get_horarios(codigo: int):
+    sql = f"SELECT DISTINCT horarios FROM comun.tasistencias WHERE usuario_codigo = {codigo}"
+    with Session(engine2) as session:
+        rows = session.execute(text(sql)).fetchall()
+        objetos = [row._asdict() for row in rows]
+        horarios = [objeto['turno_codigo']
+                    for objeto in objetos[0]['horarios']]
+
+        return horarios
+
+
+@router.get('/verificar_horarios_asignados')
+async def verificar_horarios_asignados(request: Request, codigo: int):
+    token = request.headers.get('token')
+    sql = f"SELECT DISTINCT usuario_codigo FROM comun.tasistencias"
+    try:
+        if not utils.verify_token(token):
+            raise HTTPException(
+                status_code=401, detail="Usuario no autorizado")
+        with Session(engine2) as session:
+            rows = session.execute(text(sql)).fetchall()
+            if len(rows) == 0:
+                return {
+                    "error": "S",
+                    "mensaje": "",
+                    "objetos": rows,
+                }
+            codigos = [row._asdict() for row in rows]
+            valores = [d['usuario_codigo'] for d in codigos]
+
+            nuevos_valores = []
+            for valor in valores:
+                nuevo_valor = await get_horarios(valor)
+                nuevos_valores.append(nuevo_valor)
+
+            codigos = [
+                numero for sublista in nuevos_valores for numero in sublista]
+
+            horario_asignado = False
+            if (codigo in codigos):
+                horario_asignado = True
+
+            #     nuevos_valores.append(get_horarios(valor))
+            return {"error": "N", "mensaje": "", "objetos": horario_asignado}
+
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}
+
+
+async def get_horario_info(codigo: int):
+    sql = f"SELECT dias_trabajados, inicio1, fin1, inicio2, fin2 FROM comun.tturnos WHERE codigo = {codigo}"
+    with Session(engine2) as session:
+        rows = session.execute(text(sql)).fetchall()
+        return rows
+
+
 @router.get("/calcular_horas_atrasos")
 async def calcular_horas_atrasos(request: Request, lugar: str, fecha_desde: str, fecha_hasta: str):
     token = request.headers.get('token')
@@ -514,7 +595,6 @@ async def calcular_horas_atrasos(request: Request, lugar: str, fecha_desde: str,
                 status_code=401, detail="Usuario no autorizado")
         with Session(engine2) as session:
             employees = await empleados_asignados(lugar)
-
             codigos = await empleados_asistencias()
 
             # Extraer valores únicos de 'usuario_codigo'
@@ -537,3 +617,26 @@ async def calcular_horas_atrasos(request: Request, lugar: str, fecha_desde: str,
 
     except Exception as error:
         return {"error": "S", "mensaje": str(error)}
+
+    # # Crear una lista vacía para almacenar los números de turno_codigo
+    # turno_codigos = set()
+
+    # # Iterar a través de la lista de objetos y extraer los números de turno_codigo
+    # for obj in objetos:
+    #     for horario in obj['horarios']:
+    #         turno_codigos.add(horario['turno_codigo'])
+
+    # # Convertir el conjunto en una lista
+    # horarios = list(turno_codigos)
+
+    # with Session(engine2) as session:
+    #     turnos = session.execute(text(query)).fetchall()
+
+    #     if len(turnos) == 0:
+    #         return {
+    #             "error": "S",
+    #             "mensaje": "",
+    #             "objetos": turnos,
+    #         }
+
+    #     print('[TURNOS]: ', turnos)
