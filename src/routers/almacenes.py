@@ -6,7 +6,7 @@ from src.utils import utils
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Request
 from sqlalchemy import create_engine, text
-
+from src.middleware import token_middleware
 
 # Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
 db_uri1 = config.db_uri1
@@ -24,9 +24,7 @@ async def obtener_almacenes(request: Request):
     sql = f"SELECT alm_codigo, alm_nomcom, alm_calles, alm_pais, alm_ciud, alm_tlf1, alm_tlf2 FROM comun.talmacen"
     token = request.headers.get('token')
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -49,12 +47,10 @@ async def registrar_coordenadas(request: Request):
     alm_codigo = data['alm_codigo']
     lat = data['lat']
     long = data['long']
+    sql = f"INSERT INTO comun.tcoordenadas (alm_codigo, lat, long) VALUES ('{alm_codigo}', '{lat}', '{long}') RETURNING codigo"
+    token = request.headers.get('token')
     try:
-        sql = f"INSERT INTO comun.tcoordenadas (alm_codigo, lat, long) VALUES ('{alm_codigo}', '{lat}', '{long}') RETURNING codigo"
-        token = request.headers.get('token')
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -71,12 +67,10 @@ async def actualizar_coordenadas(request: Request):
     alm_codigo = data['alm_codigo']
     lat = data['lat']
     long = data['long']
+    sql = f"UPDATE comun.tcoordenadas SET lat = '{lat}', long = '{long}' WHERE alm_codigo = '{alm_codigo}' RETURNING codigo"
+    token = request.headers.get('token')
     try:
-        sql = f"UPDATE comun.tcoordenadas SET lat = '{lat}', long = '{long}' WHERE alm_codigo = '{alm_codigo}' RETURNING codigo"
-        token = request.headers.get('token')
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -91,9 +85,7 @@ async def obtener_coordenadas(request: Request, alm_codigo: int):
     sql = f"SELECT codigo, lat, long FROM comun.tcoordenadas WHERE alm_codigo={alm_codigo}"
     token = request.headers.get('token')
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -133,9 +125,7 @@ async def obtener_lugares(request: Request):
     sql = f"SELECT c.codigo, a.alm_nomcom, a.alm_calles, a.alm_ciud, c.lat, c.long FROM comun.talmacen a INNER JOIN comun.tcoordenadas c ON a.alm_codigo = c.alm_codigo"
     token = request.headers.get('token')
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -157,12 +147,10 @@ async def designar_lugar_empleado(request: Request):
     data = json.loads(request_body)
     usuario_codigo = data['usuario_codigo']
     alm_codigo = data['alm_codigo']
+    sql = f"INSERT INTO comun.tlugaresasignados (coordenadas_codigo, usuario_codigo) VALUES ('{alm_codigo}', '{usuario_codigo}') ON CONFLICT (usuario_codigo) DO UPDATE SET coordenadas_codigo = {alm_codigo} RETURNING codigo"
+    token = request.headers.get('token')
     try:
-        sql = f"INSERT INTO comun.tlugaresasignados (coordenadas_codigo, usuario_codigo) VALUES ('{alm_codigo}', '{usuario_codigo}') ON CONFLICT (usuario_codigo) DO UPDATE SET coordenadas_codigo = {alm_codigo} RETURNING codigo"
-        token = request.headers.get('token')
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -176,11 +164,8 @@ async def designar_lugar_empleado(request: Request):
 async def obtener_lugar_empleado(request: Request):
     sql = f"SELECT talmacen.alm_nomcom AS lugares FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo"
     token = request.headers.get('token')
-
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -201,9 +186,7 @@ async def obtener_lugares_asignados(request: Request):
     sql = f"SELECT alm_codigo FROM comun.tcoordenadas ORDER BY alm_codigo"
     token = request.headers.get('token')
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:

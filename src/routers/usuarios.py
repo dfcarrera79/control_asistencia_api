@@ -2,6 +2,7 @@ import json
 import fastapi
 from src import config
 from src.utils import utils
+from src.middleware import token_middleware
 from fastapi import Request
 from sqlalchemy.orm import Session
 from email.message import EmailMessage

@@ -2,6 +2,7 @@ import json
 import fastapi
 from src import config
 from src.utils import utils
+from src.middleware import token_middleware
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Request
 from sqlalchemy import create_engine, text
@@ -29,9 +30,34 @@ async def obtener_empleado(request: Request, departamento: str):
 
     sql += " ORDER BY apellidos"
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
+        with Session(engine2) as session:
+            rows = session.execute(text(sql)).fetchall()
+            if len(rows) == 0:
+                return {
+                    "error": "S",
+                    "mensaje": "",
+                    "objetos": rows,
+                }
+
+            empleados = [row._asdict() for row in rows]
+            return {"error": "N", "mensaje": "", "objetos": empleados}
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}
+
+
+@router.get("/obtener_empleado_suplementarias")
+async def obtener_empleado(request: Request, departamento: str):
+    sql = f"SELECT TEmpleado.codigo, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS nombre_completo, TPlantillaRol.descripcion AS departamento FROM rol.TEmpleado INNER JOIN rol.TPlantillaRol ON TEmpleado.codigo_plantilla = TPlantillaRol.codigo AND desafectado LIKE 'N'"
+
+    token = request.headers.get('token')
+
+    if departamento not in [None, '', 'N']:
+        sql += f"WHERE TPlantillaRol.descripcion LIKE '{departamento}'"
+
+    sql += " ORDER BY apellidos"
+    try:
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -53,9 +79,7 @@ async def obtener_grupos(request: Request):
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -76,9 +100,7 @@ async def obtener_emplado_asignado(request: Request):
     sql = "SELECT usuario_codigo FROM comun.tlugaresasignados"
     token = request.headers.get('token')
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -104,9 +126,7 @@ async def obtener_empleados_asignados(request: Request, lugar: str):
     sql += " ORDER BY nombre_completo"
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -133,9 +153,7 @@ async def obtener_empleados_asignados(request: Request, lugar: str):
     sql += " ORDER BY nombre_completo"
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -156,12 +174,9 @@ async def obtener_empleados_horarios(request: Request):
     sql = "SELECT usuario_codigo FROM comun.tturnosasignados WHERE turno_codigo IS NOT NULL"
     token = request.headers.get('token')
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
-            print('[ROWS]: ', rows)
             if len(rows) == 0:
                 return {
                     "error": "S",
@@ -184,9 +199,7 @@ async def eliminar_horario_asignado(request: Request):
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()

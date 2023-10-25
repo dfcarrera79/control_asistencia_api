@@ -5,6 +5,7 @@ import json
 import fastapi
 from src import config
 from src.utils import utils
+from src.middleware import token_middleware
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Request
 from sqlalchemy import create_engine, text
@@ -36,12 +37,79 @@ async def lugar_asignado(codigo: int):
         return objetos
 
 
+@router.post("/registrar_horas_suplementarias")
+async def registrar_horas_suplementarias(request: Request):
+    request_body = await request.body()
+    data = json.loads(request_body)
+    usuario_codigo = data['usuario_codigo']
+    fecha = data['fecha']
+    horas = data['horas']
+    asignado_por = data['asignadoPor']
+    token = request.headers.get('token')
+    try:
+        token_middleware.verify_token(token)
+        with Session(engine2) as session:
+            sql = f"INSERT INTO comun.thoras_suplementarias (usuario_codigo, fecha, horas, asignado_por) VALUES ({usuario_codigo}, '{fecha}', {horas}, {asignado_por}) RETURNING codigo"
+            rows = session.execute(text(sql)).fetchall()
+            session.commit()
+            objetos = [row._asdict() for row in rows]
+            return {"error": "N", "mensaje": "Registro de horas suplementarias exitoso", "objetos": objetos}
+    except Exception as error:
+        return {"error": "S", "mensaje": str(error)}
+
+
+@router.delete('/eliminar_suplementarias')
+async def eliminar_suplementarias(request: Request):
+    request_body = await request.body()
+    data = json.loads(request_body)
+    codigo = data['codigo']
+    token = request.headers.get('token')
+    try:
+        token_middleware.verify_token(token)
+        with Session(engine2) as session:
+            sql = f"DELETE FROM comun.thoras_suplementarias WHERE codigo = {codigo} RETURNING codigo"
+            rows = session.execute(text(sql)).fetchall()
+            session.commit()
+            objetos = [row._asdict() for row in rows]
+            return {"error": "N", "mensaje": "Registro de horas suplementarias eliminado exitosamente", "objetos": objetos}
+    except Exception as error:
+        return {"error": "S", "mensaje": str(error)}
+
+
+@router.get("/obtener_horas_suplementarias")
+async def obtener_horas_suplementarias(request: Request, departamento, desde: str, hasta: str):
+    token = request.headers.get('token')
+    sql = "SELECT TS.codigo, TUsuario.nombres || ' ' || TUsuario.apellidos AS nombre_completo_usuario, TPlantillaRol.descripcion AS departamento, TS.fecha, TS.horas,	TAsignado.nombres || ' ' || TAsignado.apellidos AS asignado_por FROM comun.thoras_suplementarias TS INNER JOIN rol.TEmpleado TUsuario ON TS.usuario_codigo = TUsuario.codigo INNER JOIN rol.TEmpleado TAsignado ON TS.asignado_por = TAsignado.codigo INNER JOIN rol.TPlantillaRol ON TUsuario.codigo_plantilla = TPlantillaRol.codigo"
+
+    if departamento not in [None, '', 'N']:
+        sql += f" WHERE TPlantillaRol.descripcion LIKE '{departamento}'"
+
+    if desde not in [None, '', 'N'] and hasta not in [None, '', 'N']:
+        sql += f" WHERE CAST(fecha as date) BETWEEN '{desde}' AND '{hasta}'"
+
+    sql += " ORDER BY TAsignado.apellidos"
+
+    try:
+        token_middleware.verify_token(token)
+        with Session(engine2) as session:
+            rows = session.execute(text(sql)).fetchall()
+            if len(rows) == 0:
+                return {
+                    "error": "S",
+                    "mensaje": "",
+                    "objetos": rows,
+                }
+            sumplementarias = [row._asdict() for row in rows]
+            return {"error": "N", "mensaje": "", "objetos": sumplementarias}
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}
+
+
 @router.post("/registrar_entrada")
 async def registrar_entrada(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
     employee_id = data['employee_id']
-
     horarios = await horarios_asignados(employee_id)
 
     if len(horarios) == 0:
@@ -69,9 +137,7 @@ async def registrar_salida(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
     employee_id = data['employee_id']
-
     sql = f"UPDATE comun.tasistencias SET salida = NOW() WHERE codigo = (SELECT codigo FROM comun.tasistencias WHERE usuario_codigo = {employee_id} ORDER BY entrada DESC LIMIT 1) AND salida IS NULL RETURNING codigo"
-
     try:
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
@@ -88,9 +154,7 @@ async def obtener_numero_paginas(request: Request, usuario_codigo, fecha_desde, 
     sql = f"SELECT COUNT(*) FROM comun.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -101,6 +165,28 @@ async def obtener_numero_paginas(request: Request, usuario_codigo, fecha_desde, 
                 }
 
             return {"error": "N", "mensaje": "", "objetos": rows[0][0]}
+
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}
+
+
+@router.get("/obtener_numero_paginas_atrasos")
+async def obtener_numero_paginas_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_hasta):
+    token = request.headers.get('token')
+
+    objetos = await obtener_atrasos(request, usuario_codigo, fecha_desde, fecha_hasta)
+
+    try:
+        token_middleware.verify_token(token)
+
+        if len(objetos) == 0:
+            return {
+                "error": "S",
+                "mensaje": "",
+                "objetos": objetos,
+            }
+
+        return {"error": "N", "mensaje": "", "objetos": len(objetos)}
 
     except Exception as e:
         return {"error": "S", "mensaje": str(e)}
@@ -135,10 +221,7 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
     sql = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
-
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             turnos = session.execute(text(sql)).fetchall()
 
@@ -335,9 +418,7 @@ async def obtener_asistencias(request: Request, usuario_codigo, fecha_desde, fec
     query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM comun.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN comun.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada OFFSET {offset} ROWS FETCH FIRST {registros_por_pagina} ROWS ONLY"
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(query)).fetchall()
             if len(rows) == 0:
@@ -394,6 +475,14 @@ async def empleados_asistencias():
         return objetos
 
 
+async def calcular_suplementarias(usuario_codigo, fecha_desde, fecha_hasta):
+    sql = f"SELECT SUM(horas) FROM comun.thoras_suplementarias WHERE usuario_codigo = {usuario_codigo} AND fecha BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
+    with Session(engine2) as session:
+        rows = session.execute(text(sql)).fetchall()
+        objetos = [row._asdict() for row in rows]
+        return objetos[0]['sum']
+
+
 async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
 
     fecha_hasta = datetime.strptime(unquote(fecha_hasta), '%Y/%m/%d')
@@ -423,8 +512,6 @@ async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
     query = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
 
     horarios = await get_horarios(usuario_codigo)
-
-    print('[HORARIOS]: ', horarios)
 
     turnos = []
 
@@ -545,9 +632,7 @@ async def verificar_horarios_asignados(request: Request, codigo: int):
     token = request.headers.get('token')
     sql = f"SELECT DISTINCT usuario_codigo FROM comun.tasistencias"
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -590,9 +675,7 @@ async def calcular_horas_atrasos(request: Request, lugar: str, fecha_desde: str,
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             employees = await empleados_asignados(lugar)
             codigos = await empleados_asistencias()
@@ -610,33 +693,13 @@ async def calcular_horas_atrasos(request: Request, lugar: str, fecha_desde: str,
 
                 calculos = await calcular(empleado['codigo'], fecha_desde, fecha_hasta)
 
+                calculos_suplementarias = await calcular_suplementarias(empleado['codigo'], fecha_desde, fecha_hasta)
+
                 empleado['horas_trabajadas'] = calculos['horas_trabajadas']
                 empleado['atrasos'] = calculos['atrasos']
+                empleado['horas_suplementarias'] = calculos_suplementarias
 
             return {"error": "N", "mensaje": "", "objetos": empleados}
 
     except Exception as error:
         return {"error": "S", "mensaje": str(error)}
-
-    # # Crear una lista vacía para almacenar los números de turno_codigo
-    # turno_codigos = set()
-
-    # # Iterar a través de la lista de objetos y extraer los números de turno_codigo
-    # for obj in objetos:
-    #     for horario in obj['horarios']:
-    #         turno_codigos.add(horario['turno_codigo'])
-
-    # # Convertir el conjunto en una lista
-    # horarios = list(turno_codigos)
-
-    # with Session(engine2) as session:
-    #     turnos = session.execute(text(query)).fetchall()
-
-    #     if len(turnos) == 0:
-    #         return {
-    #             "error": "S",
-    #             "mensaje": "",
-    #             "objetos": turnos,
-    #         }
-
-    #     print('[TURNOS]: ', turnos)

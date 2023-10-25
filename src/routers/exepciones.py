@@ -2,6 +2,7 @@ import json
 import fastapi
 from src import config
 from src.utils import utils
+from src.middleware import token_middleware
 from datetime import datetime
 from fastapi import HTTPException, Request
 from sqlalchemy.orm import Session
@@ -24,9 +25,7 @@ async def obtener_empleados_lugares(request: Request):
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -52,9 +51,7 @@ async def registrar_exepcion(request: Request):
     token = request.headers.get('token')
     sql = f"INSERT INTO comun.texcepciones (usuario_codigo, excepcion, dias) VALUES ('{usuario_codigo}', '{excepcion.strip()}', ARRAY{dias}) RETURNING id"
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -74,9 +71,7 @@ async def autorizar_exepcion(request: Request):
     sql = f"UPDATE comun.texcepciones SET autorizado_por = '{autorizado_por}', autorizado = true WHERE id = '{usuario_codigo}' RETURNING id"
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -95,9 +90,7 @@ async def desautorizar_exepcion(request: Request):
     sql = f"UPDATE comun.texcepciones SET autorizado_por = NULL, autorizado = false WHERE id = {id} RETURNING id"
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -112,9 +105,7 @@ async def obtener_excepciones(request: Request):
     token = request.headers.get('token')
     sql = "SELECT texcepciones.id as usuario_codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom, texcepciones.excepcion, texcepciones.dias FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.texcepciones ON texcepciones.usuario_codigo = templeado.codigo WHERE texcepciones.autorizado = false ORDER BY nombre_completo"
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -130,10 +121,7 @@ async def obtener_excepciones_autorizadas(request: Request, desde: str = None, h
     sql = "SELECT texcepciones.id, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, texcepciones.excepcion, texcepciones.dias, templeado2.nombres || ' ' || templeado2.apellidos AS autorizado_por FROM comun.texcepciones INNER JOIN rol.templeado AS templeado ON texcepciones.usuario_codigo = templeado.codigo INNER JOIN rol.templeado AS templeado2 ON texcepciones.autorizado_por = templeado2.codigo WHERE texcepciones.autorizado = TRUE"
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
-
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()

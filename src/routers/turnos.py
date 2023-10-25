@@ -3,6 +3,7 @@ from sqlite3 import IntegrityError
 import fastapi
 from src import config
 from src.utils import utils
+from src.middleware import token_middleware
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Request
 from sqlalchemy import create_engine, text
@@ -41,9 +42,7 @@ async def registrar_turno(request: Request):
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -75,9 +74,7 @@ async def actualizar_turno(request: Request):
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -92,9 +89,7 @@ async def obtener_turnos(request: Request):
     sql = f"SELECT * FROM comun.tturnos"
     token = request.headers.get('token')
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -119,9 +114,7 @@ async def eliminar_turno(request: Request):
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -137,9 +130,7 @@ async def obtener_horarios(request: Request):
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
@@ -161,12 +152,9 @@ async def asignar_horario(request: Request):
     data = json.loads(request_body)
     usuario_codigo = data['usuario_codigo']
     turno_codigo = data['turno_codigo']
-
+    token = request.headers.get('token')
     try:
-        token = request.headers.get('token')
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             # Contar las asignaciones existentes para el usuario
             existing_assignments = session.execute(
@@ -193,9 +181,7 @@ async def obtener_lugar_horario(request: Request):
     token = request.headers.get('token')
 
     try:
-        if not utils.verify_token(token):
-            raise HTTPException(
-                status_code=401, detail="Usuario no autorizado")
+        token_middleware.verify_token(token)
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
