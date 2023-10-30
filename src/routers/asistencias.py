@@ -212,18 +212,25 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
 
         asistencias = [row._asdict() for row in rows]
         excepciones = await excepciones_autorizadas(usuario_codigo)
+
         nuevas_asistencias = []
         for diccionario in asistencias:
             fecha = diccionario['entrada'].strftime('%Y/%m/%d')
             if fecha not in excepciones:
                 nuevas_asistencias.append(diccionario)
 
-    sql = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
+    horarios = await get_horarios(usuario_codigo)
+
+    turnos = []
+
+    for horario in horarios:
+        info = await get_horario_info(horario)
+        turnos.append(info[0])
 
     try:
         token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            turnos = session.execute(text(sql)).fetchall()
+        # with Session(engine2) as session:
+        # turnos = session.execute(text(sql)).fetchall()
 
         atrasos = []
 

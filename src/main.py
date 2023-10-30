@@ -6,6 +6,7 @@ from src.routers import almacenes
 from src.routers import exepciones
 from src.routers import asistencias
 from src.routers import dispositivos
+from src.routers import consolidaciones
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -18,6 +19,7 @@ app.include_router(almacenes.router)
 app.include_router(exepciones.router)
 app.include_router(asistencias.router)
 app.include_router(dispositivos.router)
+app.include_router(consolidaciones.router)
 
 # Allow all origins in CORS configuration
 app.add_middleware(

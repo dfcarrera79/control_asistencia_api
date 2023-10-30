@@ -110,18 +110,23 @@ async def eliminar_turno(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
     codigo = data['codigo']
-    sql = f"DELETE FROM comun.tturnos WHERE codigo = {codigo} RETURNING codigo"
     token = request.headers.get('token')
-
     try:
         token_middleware.verify_token(token)
         with Session(engine2) as session:
+            # Verificar si hay registros relacionados en tturnosasignados
+            check_sql = f"SELECT COUNT(*) FROM comun.tturnosasignados WHERE turno_codigo = {codigo}"
+            count = session.execute(text(check_sql)).scalar()
+            if count > 0:
+                return {"error": "S", "mensaje": "No se puede eliminar el horario porque está asignado"}
+
+            sql = f"DELETE FROM comun.tturnos WHERE codigo = {codigo} RETURNING codigo"
             rows = session.execute(text(sql)).fetchall()
             session.commit()
             objetos = [row._asdict() for row in rows]
             return {"error": "N", "mensaje": "Horario eliminado correctamente", "objetos": objetos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    except Exception as error:
+        return {"error": "S", "mensaje": str(error)}
 
 
 @router.get("/obtener_horarios")
