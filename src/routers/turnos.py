@@ -3,7 +3,7 @@ from sqlite3 import IntegrityError
 import fastapi
 from src import config
 from src.utils import utils
-from src.middleware import token_middleware
+from src.middleware import token_middleware, acceso_middleware
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Request
 from sqlalchemy import create_engine, text
@@ -40,6 +40,15 @@ async def registrar_turno(request: Request):
         sql = f"INSERT INTO comun.tturnos (nombre, dias_trabajados, inicio1, fin1, inicio2, fin2) VALUES ('{nombre}', '{dias_trabajados}', '{inicio1}', '{fin1}', '{inicio2}', '{fin2}') RETURNING codigo"
 
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 826, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
 
     try:
         token_middleware.verify_token(token)
@@ -72,6 +81,15 @@ async def actualizar_turno(request: Request):
         sql = f"UPDATE comun.tturnos SET nombre = '{nombre}', inicio1 = '{inicio1}', fin1 = '{fin1}', inicio2 = '{inicio2}', fin2 = '{fin2}', dias_trabajados = '{dias_trabajados}' WHERE codigo = {codigo} RETURNING codigo"
 
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 826, 2)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
 
     try:
         token_middleware.verify_token(token)
@@ -111,6 +129,16 @@ async def eliminar_turno(request: Request):
     data = json.loads(request_body)
     codigo = data['codigo']
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 826, 3)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
+
     try:
         token_middleware.verify_token(token)
         with Session(engine2) as session:
@@ -158,6 +186,15 @@ async def asignar_horario(request: Request):
     usuario_codigo = data['usuario_codigo']
     turno_codigo = data['turno_codigo']
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 827, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
     try:
         token_middleware.verify_token(token)
         with Session(engine2) as session:

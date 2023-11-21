@@ -22,9 +22,15 @@ async def registrar_dispositivo(request: Request):
     data = json.loads(request_body)
     usuario_codigo = data['usuario_codigo']
     id_dispositivo = data['id_dispositivo']
+
+    verifica_sql = f"SELECT * FROM comun.tdispositivo WHERE usuario_codigo = '{usuario_codigo}' LIMIT 1"
+
     try:
         sql = f"INSERT INTO comun.tdispositivo (usuario_codigo, id_dispositivo) VALUES ('{usuario_codigo}', '{id_dispositivo.strip()}') RETURNING codigo"
         with Session(engine2) as session:
+            existe_registro = session.execute(text(verifica_sql)).fetchone()
+            if existe_registro:
+                return {"error": "S", "mensaje": 'Ya está registrado un dispositivo a su cuenta.', "objetos": []}
             rows = session.execute(text(sql)).fetchall()
             session.commit()
             objetos = [row._asdict() for row in rows]

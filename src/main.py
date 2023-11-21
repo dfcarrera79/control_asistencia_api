@@ -1,6 +1,8 @@
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from src.routers import turnos
 from src.routers import usuarios
+from src.routers import registros
 from src.routers import empleados
 from src.routers import almacenes
 from src.routers import exepciones
@@ -14,6 +16,7 @@ app = FastAPI()
 # API endpoints
 app.include_router(turnos.router)
 app.include_router(usuarios.router)
+app.include_router(registros.router)
 app.include_router(empleados.router)
 app.include_router(almacenes.router)
 app.include_router(exepciones.router)
@@ -29,3 +32,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+fotos_dir = "C:/Projects/ControlAsistencia/control_asistenacia_api/src/public/fotos"
+app.mount("/static", StaticFiles(directory=fotos_dir))

@@ -1,14 +1,29 @@
-from datetime import datetime, timedelta
-from datetime import time
-from urllib.parse import unquote
+import os
 import json
+import random
+import string
+import shutil
 import fastapi
+from datetime import datetime, timedelta
+from urllib.parse import unquote
+from PIL import Image
+from pydantic import BaseModel
 from src import config
 from src.utils import utils
-from src.middleware import token_middleware
+from fastapi.responses import JSONResponse
+from src.middleware import token_middleware, acceso_middleware
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, Request
+from fastapi import Request
 from sqlalchemy import create_engine, text
+from fastapi import UploadFile, File
+
+# Models
+
+
+class RegistrarModel(BaseModel):
+    filepath: str
+    codigo: int
+
 
 # Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
 db_uri1 = config.db_uri1
@@ -19,6 +34,64 @@ engine2 = create_engine(db_uri2)
 
 # API Route Definitions
 router = fastapi.APIRouter()
+
+
+def generate_random_filename():
+    # Generate a random string of letters and digits
+    letters_digits = string.ascii_letters + string.digits
+    random_filename = ''.join(random.choice(letters_digits) for _ in range(10))
+    return random_filename
+
+
+@router.post("/subir_foto")
+async def subir_foto(file: UploadFile = File(...)):
+    directorio = os.path.join(os.getcwd(), 'src', 'public', 'fotos')
+    try:
+        os.makedirs(directorio, exist_ok=True)
+
+        # Generate a random filename
+        random_filename = generate_random_filename()
+        file_extension = os.path.splitext(file.filename)[1]
+        random_filename_with_extension = random_filename + file_extension
+
+        # Save the file with the random filename
+        file_path = os.path.join(directorio, random_filename_with_extension)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Convert the image to WebP format
+        image = Image.open(file_path)
+        webp_path = os.path.splitext(file_path)[0] + ".webp"
+        image.save(webp_path, "WebP")
+
+        # Delete the original image
+        os.remove(file_path)
+
+        # Concatenate directory and filename
+        directory = os.path.join(directorio, os.path.basename(webp_path))
+
+        return JSONResponse({
+            "error": "N",
+            "mensaje": "Foto registrada exitosamente",
+            "objetos": directory
+        })
+    except Exception as e:
+        return JSONResponse({"error": "S", "mensaje": str(e)})
+
+
+@router.post("/registrar_foto")
+async def registrar_foto(data: RegistrarModel):
+    filepath = data.filepath
+    codigo = data.codigo
+    try:
+        with Session(engine2) as session:
+            sql = f"INSERT INTO comun.tfoto (usuario_codigo, path) VALUES('{codigo}', '{filepath}') returning id_foto"
+            rows = session.execute(text(sql)).fetchall()
+            session.commit()
+            objetos = [row._asdict() for row in rows]
+            return {"error": "N", "mensaje": "", "objetos": objetos}
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}
 
 
 async def horarios_asignados(codigo: int):
@@ -46,6 +119,16 @@ async def registrar_horas_suplementarias(request: Request):
     horas = data['horas']
     asignado_por = data['asignadoPor']
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 830, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
+
     try:
         token_middleware.verify_token(token)
         with Session(engine2) as session:
@@ -64,6 +147,16 @@ async def eliminar_suplementarias(request: Request):
     data = json.loads(request_body)
     codigo = data['codigo']
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 831, 3)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
+
     try:
         token_middleware.verify_token(token)
         with Session(engine2) as session:
@@ -79,7 +172,7 @@ async def eliminar_suplementarias(request: Request):
 @router.get("/obtener_horas_suplementarias")
 async def obtener_horas_suplementarias(request: Request, departamento, desde: str, hasta: str):
     token = request.headers.get('token')
-    sql = "SELECT TS.codigo, TUsuario.nombres || ' ' || TUsuario.apellidos AS nombre_completo_usuario, TPlantillaRol.descripcion AS departamento, TS.fecha, TS.horas,	TAsignado.nombres || ' ' || TAsignado.apellidos AS asignado_por FROM comun.thoras_suplementarias TS INNER JOIN rol.TEmpleado TUsuario ON TS.usuario_codigo = TUsuario.codigo INNER JOIN rol.TEmpleado TAsignado ON TS.asignado_por = TAsignado.codigo INNER JOIN rol.TPlantillaRol ON TUsuario.codigo_plantilla = TPlantillaRol.codigo"
+    sql = "SELECT TS.codigo, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS nombre_completo_usuario, TPlantillaRol.descripcion AS departamento, TS.fecha, TS.horas, TUsuario.usu_nomape AS asignado_por FROM comun.thoras_suplementarias TS INNER JOIN rol.TEmpleado TEmpleado ON TS.usuario_codigo = TEmpleado.codigo INNER JOIN usuario.TUsuario TUsuario ON TS.asignado_por = TUsuario.usu_codigo INNER JOIN rol.TPlantillaRol ON TEmpleado.codigo_plantilla = TPlantillaRol.codigo"
 
     if departamento not in [None, '', 'N']:
         sql += f" WHERE TPlantillaRol.descripcion LIKE '{departamento}'"
@@ -87,7 +180,7 @@ async def obtener_horas_suplementarias(request: Request, departamento, desde: st
     if desde not in [None, '', 'N'] and hasta not in [None, '', 'N']:
         sql += f" WHERE CAST(fecha as date) BETWEEN '{desde}' AND '{hasta}'"
 
-    sql += " ORDER BY TAsignado.apellidos"
+    sql += " ORDER BY nombre_completo_usuario"
 
     try:
         token_middleware.verify_token(token)
@@ -137,6 +230,16 @@ async def registrar_salida(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
     employee_id = data['employee_id']
+    horarios = await horarios_asignados(employee_id)
+
+    if len(horarios) == 0:
+        return {"error": "S", "mensaje": "No tiene horarios asignados"}
+
+    lugar = await lugar_asignado(employee_id)
+
+    if len(lugar) == 0:
+        return {"error": "S", "mensaje": "No tiene un lugar de trabajo asignado"}
+
     sql = f"UPDATE comun.tasistencias SET salida = NOW() WHERE codigo = (SELECT codigo FROM comun.tasistencias WHERE usuario_codigo = {employee_id} ORDER BY entrada DESC LIMIT 1) AND salida IS NULL RETURNING codigo"
     try:
         with Session(engine2) as session:

@@ -2,7 +2,7 @@ import json
 import fastapi
 from src import config
 from src.utils import utils
-from src.middleware import token_middleware
+from src.middleware import token_middleware, acceso_middleware
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, Request
 from sqlalchemy import create_engine, text
@@ -197,6 +197,15 @@ async def eliminar_horario_asignado(request: Request):
     sql = f"DELETE FROM comun.tturnosasignados WHERE codigo = {usuario_codigo} RETURNING codigo"
 
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 827, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
 
     try:
         token_middleware.verify_token(token)

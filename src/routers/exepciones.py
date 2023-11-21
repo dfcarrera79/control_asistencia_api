@@ -1,11 +1,9 @@
 import json
 import fastapi
 from src import config
-from src.utils import utils
-from src.middleware import token_middleware
-from datetime import datetime
-from fastapi import HTTPException, Request
+from fastapi import Request
 from sqlalchemy.orm import Session
+from src.middleware import token_middleware, acceso_middleware
 from sqlalchemy import create_engine, text
 
 # Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
@@ -49,6 +47,16 @@ async def registrar_exepcion(request: Request):
     excepcion = data['excepcion']
     dias = data['dias']
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 829, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
+
     sql = f"INSERT INTO comun.texcepciones (usuario_codigo, excepcion, dias) VALUES ('{usuario_codigo}', '{excepcion.strip()}', ARRAY{dias}) RETURNING id"
     try:
         token_middleware.verify_token(token)
@@ -68,6 +76,14 @@ async def autorizar_exepcion(request: Request):
     usuario_codigo = data['usuario_codigo']
     autorizado_por = data['autorizado_por']
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 829, 2)
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
     sql = f"UPDATE comun.texcepciones SET autorizado_por = '{autorizado_por}', autorizado = true WHERE id = '{usuario_codigo}' RETURNING id"
 
     try:
@@ -87,6 +103,15 @@ async def desautorizar_exepcion(request: Request):
     data = json.loads(request_body)
     id = data['id']
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 829, 3)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
     sql = f"UPDATE comun.texcepciones SET autorizado_por = NULL, autorizado = false WHERE id = {id} RETURNING id"
 
     try:
@@ -118,7 +143,8 @@ async def obtener_excepciones(request: Request):
 @router.get("/obtener_excepciones_autorizadas")
 async def obtener_excepciones_autorizadas(request: Request, desde: str = None, hasta: str = None):
     token = request.headers.get('token')
-    sql = "SELECT texcepciones.id, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, texcepciones.excepcion, texcepciones.dias, templeado2.nombres || ' ' || templeado2.apellidos AS autorizado_por FROM comun.texcepciones INNER JOIN rol.templeado AS templeado ON texcepciones.usuario_codigo = templeado.codigo INNER JOIN rol.templeado AS templeado2 ON texcepciones.autorizado_por = templeado2.codigo WHERE texcepciones.autorizado = TRUE"
+    sql = "SELECT texcepciones.id, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, texcepciones.excepcion, texcepciones.dias, TUsuario.usu_nomape AS autorizado_por FROM comun.texcepciones INNER JOIN rol.templeado AS templeado ON texcepciones.usuario_codigo = templeado.codigo INNER JOIN usuario.TUsuario ON texcepciones.autorizado_por = TUsuario.usu_codigo WHERE texcepciones.autorizado = TRUE"
+    print('[SQL]: ', sql)
 
     try:
         token_middleware.verify_token(token)
