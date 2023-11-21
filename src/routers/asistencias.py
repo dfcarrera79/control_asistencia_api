@@ -297,12 +297,22 @@ async def obtener_numero_paginas_atrasos(request: Request, usuario_codigo, fecha
 
 @router.get("/obtener_atrasos")
 async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_hasta):
-    token = request.headers.get('token')
 
     fecha_hasta = datetime.strptime(fecha_hasta, '%Y/%m/%d')
     fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
 
     query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM comun.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN comun.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada"
+
+    token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 832, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
 
     with Session(engine2) as session:
         rows = session.execute(text(query)).fetchall()
@@ -519,13 +529,23 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
 
 @router.get("/obtener_asistencias")
 async def obtener_asistencias(request: Request, usuario_codigo, fecha_desde, fecha_hasta, numero_de_pagina, registros_por_pagina):
-    token = request.headers.get('token')
     offset = (int(numero_de_pagina) - 1) * int(registros_por_pagina)
 
     fecha_hasta = datetime.strptime(fecha_hasta, '%Y/%m/%d')
     fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
 
     query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM comun.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN comun.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada OFFSET {offset} ROWS FETCH FIRST {registros_por_pagina} ROWS ONLY"
+
+    token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 832, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
 
     try:
         token_middleware.verify_token(token)

@@ -2,11 +2,10 @@ import json
 import math
 import fastapi
 from src import config
-from src.utils import utils
+from fastapi import Request
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, Request
 from sqlalchemy import create_engine, text
-from src.middleware import token_middleware
+from src.middleware import token_middleware, acceso_middleware
 
 # Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
 db_uri1 = config.db_uri1
@@ -49,6 +48,15 @@ async def registrar_coordenadas(request: Request):
     long = data['long']
     sql = f"INSERT INTO comun.tcoordenadas (alm_codigo, lat, long) VALUES ('{alm_codigo}', '{lat}', '{long}') RETURNING codigo"
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 820, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
     try:
         token_middleware.verify_token(token)
         with Session(engine2) as session:
@@ -149,6 +157,15 @@ async def designar_lugar_empleado(request: Request):
     alm_codigo = data['alm_codigo']
     sql = f"INSERT INTO comun.tlugaresasignados (coordenadas_codigo, usuario_codigo) VALUES ('{alm_codigo}', '{usuario_codigo}') ON CONFLICT (usuario_codigo) DO UPDATE SET coordenadas_codigo = {alm_codigo} RETURNING codigo"
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 821, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
     try:
         token_middleware.verify_token(token)
         with Session(engine2) as session:

@@ -1,12 +1,10 @@
 import json
 import fastapi
 from src import config
-from src.utils import utils
-from src.middleware import token_middleware
-from datetime import datetime
-from fastapi import HTTPException, Request
+from fastapi import Request
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
+from src.middleware import token_middleware, acceso_middleware
 
 # Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
 db_uri1 = config.db_uri1
@@ -60,6 +58,15 @@ async def registrar_consolidacion(request: Request):
     datos = data['datos']
 
     token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 833, 1)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
 
     # Consulta para verificar si ya existe un registro con el mismo año y mes
     verifica_sql = f"SELECT codigo_cierre FROM comun.tcierremes WHERE mes = '{mes}' AND anio = '{anio}' AND anulado = 'N' LIMIT 1"
@@ -118,14 +125,22 @@ async def listar_consolidaciones(request: Request, mes: int, anio: int):
 
 @router.put("/anular_consolidacion")
 async def anular_consolidacion(request: Request):
-    token = request.headers.get('token')
     request_body = await request.body()
     data = json.loads(request_body)
     codigo_cierre = data['codigoCierre']
     usuario_actualizo = data['usuarioActualizo']
     sql = f"UPDATE comun.tcierremes SET anulado = 'S', usuario_actualizo = '{usuario_actualizo}', fecha_actualizo = NOW()  WHERE codigo_cierre = {codigo_cierre} RETURNING codigo_cierre"
 
-    print('[SQL]: ', sql)
+    token = request.headers.get('token')
+    usucodigo = request.headers.get('usucodigo')
+    acceso = await acceso_middleware.tiene_acceso(usucodigo, 834, 3)
+
+    if acceso[0]['tiene_acceso'] != '':
+        return {
+            "error": "S",
+            "mensaje": acceso[0]['tiene_acceso'],
+            "objetos": "",
+        }
 
     try:
         token_middleware.verify_token(token)
