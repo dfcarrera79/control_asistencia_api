@@ -1,24 +1,21 @@
 import json
-from sqlite3 import IntegrityError
 import fastapi
+from fastapi import Request
 from src.config import config
-from src.utils import utils
-from src.middleware import token_middleware, acceso_middleware
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, Request
 from sqlalchemy import create_engine, text
+from src.routers.controllers import SessionHandler
+from src.middleware import token_middleware, acceso_middleware
 
 
-# Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
-db_uri1 = config.db_uri1
-engine1 = create_engine(db_uri1)
-
-db_uri2 = config.db_uri2
-engine2 = create_engine(db_uri2)
-
+# Establish connections to PostgreSQL databases for "apromed"
+engine = create_engine(config.db_uri2)
 
 # API Route Definitions
 router = fastapi.APIRouter()
+
+# Crear una instancia de la clase con tu motor de base de datos
+query_handler = SessionHandler(engine)
 
 
 @router.post("/registrar_turno")
@@ -50,15 +47,7 @@ async def registrar_turno(request: Request):
             "objetos": "",
         }
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Registro de horario exitoso", "objetos": objetos}
-    except Exception as error:
-        return {"error": "S", "mensaje": str(error)}
+    return query_handler.execute_sql_token(sql, token, "Registro de horario exitoso")
 
 
 @router.put("/actualizar_turno")
@@ -91,36 +80,14 @@ async def actualizar_turno(request: Request):
             "objetos": "",
         }
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "El horario se ha actualizado correctamente", "objetos": objetos}
-    except Exception as error:
-        return {"error": "S", "mensaje": str(error)}
+    return query_handler.execute_sql_token(sql, token, "El horario se ha actualizado correctamente")
 
 
 @router.get("/obtener_turnos")
 async def obtener_turnos(request: Request):
     sql = f"SELECT * FROM rol.tturnos"
     token = request.headers.get('token')
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            turnos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": turnos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.delete("/eliminar_turno")
@@ -141,7 +108,7 @@ async def eliminar_turno(request: Request):
 
     try:
         token_middleware.verify_token(token)
-        with Session(engine2) as session:
+        with Session(engine) as session:
             # Verificar si hay registros relacionados en tturnosasignados
             check_sql = f"SELECT COUNT(*) FROM rol.tturnosasignados WHERE turno_codigo = {codigo}"
             count = session.execute(text(check_sql)).scalar()
@@ -161,22 +128,7 @@ async def eliminar_turno(request: Request):
 async def obtener_horarios(request: Request):
     sql = f"SELECT codigo, nombre, inicio1, fin1, inicio2, fin2 FROM rol.tturnos"
     token = request.headers.get('token')
-
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            horarios = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": horarios}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.post("/asignar_horario")
@@ -197,7 +149,7 @@ async def asignar_horario(request: Request):
         }
     try:
         token_middleware.verify_token(token)
-        with Session(engine2) as session:
+        with Session(engine) as session:
             # Contar las asignaciones existentes para el usuario
             existing_assignments = session.execute(
                 text(
@@ -221,19 +173,4 @@ async def asignar_horario(request: Request):
 async def obtener_lugar_horario(request: Request):
     sql = f"SELECT talmacen.alm_nomcom FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo"
     token = request.headers.get('token')
-
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            lugares = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": lugares}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")

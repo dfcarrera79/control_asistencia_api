@@ -1,13 +1,9 @@
-import json
 import fastapi
-from src.config import config
 from src.utils import utils
-from src.middleware import token_middleware
-from fastapi import Request
+from src.config import config
 from sqlalchemy.orm import Session
-from email.message import EmailMessage
 from sqlalchemy import create_engine, text
-from src.utils.utils import generate_random_string
+
 
 # Establish connections to PostgreSQL databases for "apromed"
 engine = create_engine(config.db_uri2)

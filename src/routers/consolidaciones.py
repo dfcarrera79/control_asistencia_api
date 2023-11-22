@@ -1,7 +1,7 @@
 import json
 import fastapi
-from src.config import config
 from fastapi import Request
+from src.config import config
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
 from src.routers.controllers import SessionHandler

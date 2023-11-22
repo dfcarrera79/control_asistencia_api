@@ -3,8 +3,8 @@ import json
 import shutil
 import fastapi
 from PIL import Image
-from src.config import config
 from src.utils import utils
+from src.config import config
 from pydantic import BaseModel
 from urllib.parse import unquote
 from sqlalchemy.orm import Session
