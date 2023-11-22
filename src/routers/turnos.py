@@ -1,7 +1,7 @@
 import json
 from sqlite3 import IntegrityError
 import fastapi
-from src import config
+from src.config import config
 from src.utils import utils
 from src.middleware import token_middleware, acceso_middleware
 from sqlalchemy.orm import Session

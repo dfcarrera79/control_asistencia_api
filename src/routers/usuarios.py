@@ -1,6 +1,6 @@
 import json
 import fastapi
-from src import config
+from src.config import config
 from src.utils import utils
 from src.middleware import token_middleware
 from fastapi import Request
@@ -25,7 +25,6 @@ router = fastapi.APIRouter()
 @router.get("/validar_usuario")
 async def validar_cliente(id: str, clave: str):
     sql = f"SELECT * FROM usuario.login_usuario('{id.strip()}', 1) AS (codigo INTEGER, usu_login TEXT, usu_nomape TEXT, usu_clave TEXT)"
-    # sql = f"SELECT TUsuario.usu_nomape, TUsuario.usu_clave, TUsuario.usu_login, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS full_name, TEmpleado.codigo FROM rol.TEmpleado INNER JOIN usuario.TUsuario ON TEmpleado.codigo = TUsuario.codigo_empleado WHERE TRIM(TUsuario.usu_login) LIKE '{id.strip()}'"
     try:
         with Session(engine2) as session:
             rows = session.execute(text(sql)).fetchall()
@@ -67,7 +66,6 @@ async def obtener_usuario(id: str):
 
             usuario = [row._asdict() for row in rows]
             return {"error": "N", "mensaje": "", "objetos": usuario[0]}
-            # return {"error": "N", "mensaje": "", "objetos": usuario[0]['email']}
     except Exception as e:
         return {"error": "S", "mensaje": str(e)}
 

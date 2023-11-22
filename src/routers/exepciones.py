@@ -1,6 +1,6 @@
 import json
 import fastapi
-from src import config
+from src.config import config
 from fastapi import Request
 from sqlalchemy import create_engine
 from src.middleware import acceso_middleware

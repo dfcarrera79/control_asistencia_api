@@ -1,6 +1,6 @@
 import json
 import fastapi
-from src import config
+from src.config import config
 from fastapi import Request
 from sqlalchemy import create_engine
 from src.middleware import acceso_middleware
@@ -110,4 +110,4 @@ async def eliminar_horario_asignado(request: Request):
             "objetos": "",
         }
 
-    return query_handler.execute_sql_token(sql, token, "Asignación de horario eliminada correctamente", "objetos")
+    return query_handler.execute_sql_token(sql, token, "Asignación de horario eliminada correctamente")

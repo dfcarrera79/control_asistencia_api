@@ -3,7 +3,7 @@ import random
 import string
 import smtplib
 
-from src import config
+from src.config import config
 from fastapi import HTTPException
 from email.mime.text import MIMEText
 from email.message import EmailMessage

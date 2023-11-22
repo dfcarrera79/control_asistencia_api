@@ -3,7 +3,7 @@ import json
 import shutil
 import fastapi
 from PIL import Image
-from src import config
+from src.config import config
 from src.utils import utils
 from pydantic import BaseModel
 from urllib.parse import unquote
