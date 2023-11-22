@@ -73,12 +73,12 @@ async def subir_foto(file: UploadFile = File(...)):
 async def registrar_foto(data: RegistrarModel):
     filepath = data.filepath
     codigo = data.codigo
-    sql = f"INSERT INTO comun.tfoto (usuario_codigo, path) VALUES('{codigo}', '{filepath}') returning id_foto"
+    sql = f"INSERT INTO rol.tfoto (usuario_codigo, path) VALUES('{codigo}', '{filepath}') returning id_foto"
     return query_handler.execute_sql(sql, "")
 
 
 async def horarios_asignados(codigo: int):
-    sql = f"SELECT turno_codigo FROM comun.tturnosasignados WHERE usuario_codigo = {codigo}"
+    sql = f"SELECT turno_codigo FROM rol.tturnosasignados WHERE usuario_codigo = {codigo}"
     with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
@@ -86,7 +86,7 @@ async def horarios_asignados(codigo: int):
 
 
 async def lugar_asignado(codigo: int):
-    sql = f"SELECT coordenadas_codigo FROM comun.tlugaresasignados WHERE usuario_codigo = {codigo}"
+    sql = f"SELECT coordenadas_codigo FROM rol.tlugaresasignados WHERE usuario_codigo = {codigo}"
     with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
@@ -104,7 +104,7 @@ async def registrar_horas_suplementarias(request: Request):
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
     acceso = await acceso_middleware.tiene_acceso(usucodigo, 830, 1)
-    sql = f"INSERT INTO comun.thoras_suplementarias (usuario_codigo, fecha, horas, asignado_por) VALUES ({usuario_codigo}, '{fecha}', {horas}, {asignado_por}) RETURNING codigo"
+    sql = f"INSERT INTO rol.thoras_suplementarias (usuario_codigo, fecha, horas, asignado_por) VALUES ({usuario_codigo}, '{fecha}', {horas}, {asignado_por}) RETURNING codigo"
 
     if acceso[0]['tiene_acceso'] != '':
         return {
@@ -132,7 +132,7 @@ async def eliminar_suplementarias(request: Request):
             "objetos": "",
         }
 
-    sql = f"DELETE FROM comun.thoras_suplementarias WHERE codigo = {codigo} RETURNING codigo"
+    sql = f"DELETE FROM rol.thoras_suplementarias WHERE codigo = {codigo} RETURNING codigo"
 
     return query_handler.execute_sql_token(sql, token, "Registro de horas suplementarias eliminado exitosamente")
 
@@ -140,7 +140,7 @@ async def eliminar_suplementarias(request: Request):
 @router.get("/obtener_horas_suplementarias")
 async def obtener_horas_suplementarias(request: Request, departamento, desde: str, hasta: str):
     token = request.headers.get('token')
-    sql = "SELECT TS.codigo, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS nombre_completo_usuario, TPlantillaRol.descripcion AS departamento, TS.fecha, TS.horas, TUsuario.usu_nomape AS asignado_por FROM comun.thoras_suplementarias TS INNER JOIN rol.TEmpleado TEmpleado ON TS.usuario_codigo = TEmpleado.codigo INNER JOIN usuario.TUsuario TUsuario ON TS.asignado_por = TUsuario.usu_codigo INNER JOIN rol.TPlantillaRol ON TEmpleado.codigo_plantilla = TPlantillaRol.codigo"
+    sql = "SELECT TS.codigo, TEmpleado.nombres || ' ' || TEmpleado.apellidos AS nombre_completo_usuario, TPlantillaRol.descripcion AS departamento, TS.fecha, TS.horas, TUsuario.usu_nomape AS asignado_por FROM rol.thoras_suplementarias TS INNER JOIN rol.TEmpleado TEmpleado ON TS.usuario_codigo = TEmpleado.codigo INNER JOIN usuario.TUsuario TUsuario ON TS.asignado_por = TUsuario.usu_codigo INNER JOIN rol.TPlantillaRol ON TEmpleado.codigo_plantilla = TPlantillaRol.codigo"
 
     if departamento not in [None, '', 'N']:
         sql += f" WHERE TPlantillaRol.descripcion LIKE '{departamento}'"
@@ -168,7 +168,7 @@ async def registrar_entrada(request: Request):
     if len(lugar) == 0:
         return {"error": "S", "mensaje": "No tiene un lugar de trabajo asignado"}
 
-    sql = f"INSERT INTO comun.tasistencias (usuario_codigo, entrada, horarios, lugar_asignado) VALUES ({employee_id}, NOW(), '{json.dumps(horarios)}', {lugar[0]['coordenadas_codigo']}) RETURNING codigo"
+    sql = f"INSERT INTO rol.tasistencias (usuario_codigo, entrada, horarios, lugar_asignado) VALUES ({employee_id}, NOW(), '{json.dumps(horarios)}', {lugar[0]['coordenadas_codigo']}) RETURNING codigo"
 
     return query_handler.execute_sql(sql, "Registro de entrada exitoso")
 
@@ -188,7 +188,7 @@ async def registrar_salida(request: Request):
     if len(lugar) == 0:
         return {"error": "S", "mensaje": "No tiene un lugar de trabajo asignado"}
 
-    sql = f"UPDATE comun.tasistencias SET salida = NOW() WHERE codigo = (SELECT codigo FROM comun.tasistencias WHERE usuario_codigo = {employee_id} ORDER BY entrada DESC LIMIT 1) AND salida IS NULL RETURNING codigo"
+    sql = f"UPDATE rol.tasistencias SET salida = NOW() WHERE codigo = (SELECT codigo FROM rol.tasistencias WHERE usuario_codigo = {employee_id} ORDER BY entrada DESC LIMIT 1) AND salida IS NULL RETURNING codigo"
 
     return query_handler.execute_sql(sql, "Registro de salida exitoso")
 
@@ -196,7 +196,7 @@ async def registrar_salida(request: Request):
 @router.get("/obtener_numero_paginas")
 async def obtener_numero_paginas(request: Request, usuario_codigo, fecha_desde, fecha_hasta):
     token = request.headers.get('token')
-    sql = f"SELECT COUNT(*) FROM comun.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
+    sql = f"SELECT COUNT(*) FROM rol.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
 
     return query_handler.execute_sql_token(sql, token, "")
 
@@ -229,7 +229,7 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
     fecha_hasta = datetime.strptime(fecha_hasta, '%Y/%m/%d')
     fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
 
-    query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM comun.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN comun.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada"
+    query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM rol.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN rol.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada"
 
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
@@ -460,7 +460,7 @@ async def obtener_asistencias(request: Request, usuario_codigo, fecha_desde, fec
     fecha_hasta = datetime.strptime(fecha_hasta, '%Y/%m/%d')
     fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
 
-    query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM comun.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN comun.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada OFFSET {offset} ROWS FETCH FIRST {registros_por_pagina} ROWS ONLY"
+    query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM rol.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN rol.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada OFFSET {offset} ROWS FETCH FIRST {registros_por_pagina} ROWS ONLY"
 
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
@@ -500,7 +500,7 @@ async def obtener_asistencias(request: Request, usuario_codigo, fecha_desde, fec
 
 
 async def empleados_asignados(lugar: str):
-    sql = "SELECT templeado.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo"
+    sql = "SELECT templeado.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo"
     if lugar not in [None, '', 'N']:
         sql += f" WHERE talmacen.alm_nomcom LIKE '{lugar}'"
 
@@ -513,7 +513,7 @@ async def empleados_asignados(lugar: str):
 
 
 async def excepciones_autorizadas(codigo: int):
-    sql = f"SELECT usuario_codigo, dias FROM comun.texcepciones WHERE usuario_codigo = {codigo} AND autorizado = true;"
+    sql = f"SELECT usuario_codigo, dias FROM rol.texcepciones WHERE usuario_codigo = {codigo} AND autorizado = true;"
 
     with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
@@ -524,7 +524,7 @@ async def excepciones_autorizadas(codigo: int):
 
 
 async def empleados_asistencias():
-    sql = "SELECT usuario_codigo FROM comun.tasistencias ORDER BY usuario_codigo"
+    sql = "SELECT usuario_codigo FROM rol.tasistencias ORDER BY usuario_codigo"
     with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
@@ -532,7 +532,7 @@ async def empleados_asistencias():
 
 
 async def calcular_suplementarias(usuario_codigo, fecha_desde, fecha_hasta):
-    sql = f"SELECT SUM(horas) FROM comun.thoras_suplementarias WHERE usuario_codigo = {usuario_codigo} AND fecha BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
+    sql = f"SELECT SUM(horas) FROM rol.thoras_suplementarias WHERE usuario_codigo = {usuario_codigo} AND fecha BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
     with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
@@ -543,7 +543,7 @@ async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
 
     fecha_hasta = datetime.strptime(unquote(fecha_hasta), '%Y/%m/%d')
     fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
-    query = f"SELECT entrada, salida FROM comun.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{unquote(fecha_desde)}' AND '{fecha_hasta}'"
+    query = f"SELECT entrada, salida FROM rol.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{unquote(fecha_desde)}' AND '{fecha_hasta}'"
 
     excepciones = await excepciones_autorizadas(usuario_codigo)
 
@@ -565,7 +565,7 @@ async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
             if fecha not in excepciones:
                 nuevas_asistencias.append(diccionario)
 
-    query = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
+    query = f"SELECT tturnos.dias_trabajados, tturnos.inicio1, tturnos.fin1, tturnos.inicio2, tturnos.fin2 FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN rol.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN rol.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo WHERE templeado.codigo = {usuario_codigo}"
 
     horarios = await get_horarios(usuario_codigo)
 
@@ -673,7 +673,7 @@ async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
 
 
 async def get_horarios(codigo: int):
-    sql = f"SELECT DISTINCT horarios FROM comun.tasistencias WHERE usuario_codigo = {codigo}"
+    sql = f"SELECT DISTINCT horarios FROM rol.tasistencias WHERE usuario_codigo = {codigo}"
     with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
@@ -686,7 +686,7 @@ async def get_horarios(codigo: int):
 @router.get('/verificar_horarios_asignados')
 async def verificar_horarios_asignados(request: Request, codigo: int):
     token = request.headers.get('token')
-    sql = f"SELECT DISTINCT usuario_codigo FROM comun.tasistencias"
+    sql = f"SELECT DISTINCT usuario_codigo FROM rol.tasistencias"
     try:
         token_middleware.verify_token(token)
         with Session(engine) as session:
@@ -720,7 +720,7 @@ async def verificar_horarios_asignados(request: Request, codigo: int):
 
 
 async def get_horario_info(codigo: int):
-    sql = f"SELECT dias_trabajados, inicio1, fin1, inicio2, fin2 FROM comun.tturnos WHERE codigo = {codigo}"
+    sql = f"SELECT dias_trabajados, inicio1, fin1, inicio2, fin2 FROM rol.tturnos WHERE codigo = {codigo}"
     with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         return rows

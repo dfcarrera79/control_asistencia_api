@@ -19,10 +19,10 @@ async def registrar_dispositivo(request: Request):
     usuario_codigo = data['usuario_codigo']
     id_dispositivo = data['id_dispositivo']
 
-    verifica_sql = f"SELECT * FROM comun.tdispositivo WHERE usuario_codigo = '{usuario_codigo}' LIMIT 1"
+    verifica_sql = f"SELECT * FROM rol.tdispositivo WHERE usuario_codigo = '{usuario_codigo}' LIMIT 1"
 
     try:
-        sql = f"INSERT INTO comun.tdispositivo (usuario_codigo, id_dispositivo) VALUES ('{usuario_codigo}', '{id_dispositivo.strip()}') RETURNING codigo"
+        sql = f"INSERT INTO rol.tdispositivo (usuario_codigo, id_dispositivo) VALUES ('{usuario_codigo}', '{id_dispositivo.strip()}') RETURNING codigo"
         with Session(engine) as session:
             existe_registro = session.execute(text(verifica_sql)).fetchone()
             if existe_registro:
@@ -37,7 +37,7 @@ async def registrar_dispositivo(request: Request):
 
 @router.get("/validar_dispositivo")
 async def validar_dispositivo(id: str):
-    sql = f"SELECT * FROM comun.tdispositivo WHERE TRIM(id_dispositivo) LIKE '{id.strip()}'"
+    sql = f"SELECT * FROM rol.tdispositivo WHERE TRIM(id_dispositivo) LIKE '{id.strip()}'"
     try:
         with Session(engine) as session:
             rows = session.execute(text(sql)).fetchall()

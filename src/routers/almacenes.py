@@ -30,7 +30,7 @@ async def registrar_coordenadas(request: Request):
     alm_codigo = data['alm_codigo']
     lat = data['lat']
     long = data['long']
-    sql = f"INSERT INTO comun.tcoordenadas (alm_codigo, lat, long) VALUES ('{alm_codigo}', '{lat}', '{long}') RETURNING codigo"
+    sql = f"INSERT INTO rol.tcoordenadas (alm_codigo, lat, long) VALUES ('{alm_codigo}', '{lat}', '{long}') RETURNING codigo"
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
     acceso = await acceso_middleware.tiene_acceso(usucodigo, 820, 1)
@@ -52,27 +52,27 @@ async def actualizar_coordenadas(request: Request):
     alm_codigo = data['alm_codigo']
     lat = data['lat']
     long = data['long']
-    sql = f"UPDATE comun.tcoordenadas SET lat = '{lat}', long = '{long}' WHERE alm_codigo = '{alm_codigo}' RETURNING codigo"
+    sql = f"UPDATE rol.tcoordenadas SET lat = '{lat}', long = '{long}' WHERE alm_codigo = '{alm_codigo}' RETURNING codigo"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "Las coordenadas se han actualizado")
 
 
 @router.get("/obtener_coordenadas")
 async def obtener_coordenadas(request: Request, alm_codigo: int):
-    sql = f"SELECT codigo, lat, long FROM comun.tcoordenadas WHERE alm_codigo={alm_codigo}"
+    sql = f"SELECT codigo, lat, long FROM rol.tcoordenadas WHERE alm_codigo={alm_codigo}"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_coordenadas_almacen")
 async def obtener_coordenadas(alm_nomcom: str):
-    sql = f"SELECT lat, long FROM comun.tcoordenadas INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE alm_nomcom LIKE '{alm_nomcom}'"
+    sql = f"SELECT lat, long FROM rol.tcoordenadas INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE alm_nomcom LIKE '{alm_nomcom}'"
     return query_handler.execute_sql_token(sql, "")
 
 
 @router.get("/obtener_lugares")
 async def obtener_lugares(request: Request):
-    sql = f"SELECT c.codigo, a.alm_nomcom, a.alm_calles, a.alm_ciud, c.lat, c.long FROM comun.talmacen a INNER JOIN comun.tcoordenadas c ON a.alm_codigo = c.alm_codigo"
+    sql = f"SELECT c.codigo, a.alm_nomcom, a.alm_calles, a.alm_ciud, c.lat, c.long FROM comun.talmacen a INNER JOIN rol.tcoordenadas c ON a.alm_codigo = c.alm_codigo"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "")
 
@@ -83,7 +83,7 @@ async def designar_lugar_empleado(request: Request):
     data = json.loads(request_body)
     usuario_codigo = data['usuario_codigo']
     alm_codigo = data['alm_codigo']
-    sql = f"INSERT INTO comun.tlugaresasignados (coordenadas_codigo, usuario_codigo) VALUES ('{alm_codigo}', '{usuario_codigo}') ON CONFLICT (usuario_codigo) DO UPDATE SET coordenadas_codigo = {alm_codigo} RETURNING codigo"
+    sql = f"INSERT INTO rol.tlugaresasignados (coordenadas_codigo, usuario_codigo) VALUES ('{alm_codigo}', '{usuario_codigo}') ON CONFLICT (usuario_codigo) DO UPDATE SET coordenadas_codigo = {alm_codigo} RETURNING codigo"
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
     acceso = await acceso_middleware.tiene_acceso(usucodigo, 821, 1)
@@ -100,13 +100,13 @@ async def designar_lugar_empleado(request: Request):
 
 @router.get("/obtener_lugar_empleado")
 async def obtener_lugar_empleado(request: Request):
-    sql = f"SELECT talmacen.alm_nomcom AS lugares FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo"
+    sql = f"SELECT talmacen.alm_nomcom AS lugares FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_lugares_asignados")
 async def obtener_lugares_asignados(request: Request):
-    sql = f"SELECT alm_codigo FROM comun.tcoordenadas ORDER BY alm_codigo"
+    sql = f"SELECT alm_codigo FROM rol.tcoordenadas ORDER BY alm_codigo"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "")

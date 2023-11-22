@@ -18,7 +18,7 @@ query_handler = SessionHandler(engine)
 
 @router.get("/obtener_empleados_lugares")
 async def obtener_empleados_lugares(request: Request):
-    sql = f"SELECT templeado.codigo as usuario_codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo ORDER BY nombre_completo"
+    sql = f"SELECT templeado.codigo as usuario_codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo ORDER BY nombre_completo"
     token = request.headers.get('token')
 
     return query_handler.execute_sql_token(sql, token, "")
@@ -42,7 +42,7 @@ async def registrar_exepcion(request: Request):
             "objetos": "",
         }
 
-    sql = f"INSERT INTO comun.texcepciones (usuario_codigo, excepcion, dias) VALUES ('{usuario_codigo}', '{excepcion.strip()}', ARRAY{dias}) RETURNING id"
+    sql = f"INSERT INTO rol.texcepciones (usuario_codigo, excepcion, dias) VALUES ('{usuario_codigo}', '{excepcion.strip()}', ARRAY{dias}) RETURNING id"
 
     return query_handler.execute_sql_token(sql, token, "Registro de excepción exitoso")
 
@@ -62,7 +62,7 @@ async def autorizar_exepcion(request: Request):
             "mensaje": acceso[0]['tiene_acceso'],
             "objetos": "",
         }
-    sql = f"UPDATE comun.texcepciones SET autorizado_por = '{autorizado_por}', autorizado = true WHERE id = '{usuario_codigo}' RETURNING id"
+    sql = f"UPDATE rol.texcepciones SET autorizado_por = '{autorizado_por}', autorizado = true WHERE id = '{usuario_codigo}' RETURNING id"
 
     return query_handler.execute_sql_token(sql, token, "Excepción autorizada con exitoso")
 
@@ -82,7 +82,7 @@ async def desautorizar_exepcion(request: Request):
             "mensaje": acceso[0]['tiene_acceso'],
             "objetos": "",
         }
-    sql = f"UPDATE comun.texcepciones SET autorizado_por = NULL, autorizado = false WHERE id = {id} RETURNING id"
+    sql = f"UPDATE rol.texcepciones SET autorizado_por = NULL, autorizado = false WHERE id = {id} RETURNING id"
 
     return query_handler.execute_sql_token(sql, token, "La autorización se ha eliminado con éxito.")
 
@@ -90,7 +90,7 @@ async def desautorizar_exepcion(request: Request):
 @router.get("/obtener_excepciones")
 async def obtener_excepciones(request: Request):
     token = request.headers.get('token')
-    sql = "SELECT texcepciones.id as usuario_codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom, texcepciones.excepcion, texcepciones.dias FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.texcepciones ON texcepciones.usuario_codigo = templeado.codigo WHERE texcepciones.autorizado = false ORDER BY nombre_completo"
+    sql = "SELECT texcepciones.id as usuario_codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom, texcepciones.excepcion, texcepciones.dias FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN rol.texcepciones ON texcepciones.usuario_codigo = templeado.codigo WHERE texcepciones.autorizado = false ORDER BY nombre_completo"
 
     return query_handler.execute_sql_token(sql, token, "")
 
@@ -98,6 +98,6 @@ async def obtener_excepciones(request: Request):
 @router.get("/obtener_excepciones_autorizadas")
 async def obtener_excepciones_autorizadas(request: Request, desde: str = None, hasta: str = None):
     token = request.headers.get('token')
-    sql = "SELECT texcepciones.id, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, texcepciones.excepcion, texcepciones.dias, TUsuario.usu_nomape AS autorizado_por FROM comun.texcepciones INNER JOIN rol.templeado AS templeado ON texcepciones.usuario_codigo = templeado.codigo INNER JOIN usuario.TUsuario ON texcepciones.autorizado_por = TUsuario.usu_codigo WHERE texcepciones.autorizado = TRUE"
+    sql = "SELECT texcepciones.id, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, texcepciones.excepcion, texcepciones.dias, TUsuario.usu_nomape AS autorizado_por FROM rol.texcepciones INNER JOIN rol.templeado AS templeado ON texcepciones.usuario_codigo = templeado.codigo INNER JOIN usuario.TUsuario ON texcepciones.autorizado_por = TUsuario.usu_codigo WHERE texcepciones.autorizado = TRUE"
 
     return query_handler.get_exceptions(sql, token, desde, hasta)

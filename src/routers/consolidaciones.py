@@ -25,13 +25,11 @@ async def registrar_detalle_cierre(codigo: int, normal: float, suplementaria: fl
     atrasos = atrasos if atrasos is not None else 0
     usuario_codigo = usuario_codigo if usuario_codigo is not None else 0
 
-    sql = f"INSERT INTO comun.tdetallemes (codigo_cierre, normal, suplementaria, atrasos, usuario_codigo) VALUES ('{codigo}', '{normal}', '{suplementaria}', '{atrasos}', '{usuario_codigo}') RETURNING codigo_detalle"
+    sql = f"INSERT INTO rol.tdetallemes (codigo_cierre, normal, suplementaria, atrasos, usuario_codigo) VALUES ('{codigo}', '{normal}', '{suplementaria}', '{atrasos}', '{usuario_codigo}') RETURNING codigo_detalle"
 
     with Session(engine) as session:
         try:
-            # Ejecutar la consulta SQL
             rows = session.execute(text(sql)).fetchall()
-            # Confirmar la transacción
             session.commit()
             if len(rows) == 0:
                 return {
@@ -69,9 +67,9 @@ async def registrar_consolidacion(request: Request):
         }
 
     # Consulta para verificar si ya existe un registro con el mismo año y mes
-    verifica_sql = f"SELECT codigo_cierre FROM comun.tcierremes WHERE mes = '{mes}' AND anio = '{anio}' AND anulado = 'N' LIMIT 1"
+    verifica_sql = f"SELECT codigo_cierre FROM rol.tcierremes WHERE mes = '{mes}' AND anio = '{anio}' AND anulado = 'N' LIMIT 1"
 
-    sql = f"INSERT INTO comun.tcierremes (mes, anio, usuario_creo, fecha_creacion, anulado) VALUES ('{mes}', '{anio}', '{usuario_creo}', NOW(), 'N') RETURNING codigo_cierre"
+    sql = f"INSERT INTO rol.tcierremes (mes, anio, usuario_creo, fecha_creacion, anulado) VALUES ('{mes}', '{anio}', '{usuario_creo}', NOW(), 'N') RETURNING codigo_cierre"
 
     try:
         token_middleware.verify_token(token)
@@ -101,7 +99,7 @@ async def registrar_consolidacion(request: Request):
 @router.get("/listar_consolidaciones")
 async def listar_consolidaciones(request: Request, mes: int, anio: int):
     token = request.headers.get('token')
-    verifica_sql = f"SELECT codigo_cierre FROM comun.tcierremes WHERE mes = '{mes}' AND anio = '{anio}' AND anulado = 'N' "
+    verifica_sql = f"SELECT codigo_cierre FROM rol.tcierremes WHERE mes = '{mes}' AND anio = '{anio}' AND anulado = 'N' "
 
     try:
         token_middleware.verify_token(token)
@@ -111,7 +109,7 @@ async def listar_consolidaciones(request: Request, mes: int, anio: int):
             if (codigo == None):
                 return {"error": "S", "mensaje": 'No existen registros con esa fecha', "objetos": []}
 
-            sql = f"SELECT codigo_detalle, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, TPlantillaRol.descripcion AS departamento, normal, suplementaria, atrasos FROM comun.tdetallemes INNER JOIN rol.templeado ON tdetallemes.usuario_codigo = templeado.codigo INNER JOIN rol.TPlantillaRol ON TEmpleado.codigo_plantilla = TPlantillaRol.codigo WHERE codigo_cierre = {codigo[0]}"
+            sql = f"SELECT codigo_detalle, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, TPlantillaRol.descripcion AS departamento, normal, suplementaria, atrasos FROM rol.tdetallemes INNER JOIN rol.templeado ON tdetallemes.usuario_codigo = templeado.codigo INNER JOIN rol.TPlantillaRol ON TEmpleado.codigo_plantilla = TPlantillaRol.codigo WHERE codigo_cierre = {codigo[0]}"
 
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -129,7 +127,7 @@ async def anular_consolidacion(request: Request):
     data = json.loads(request_body)
     codigo_cierre = data['codigoCierre']
     usuario_actualizo = data['usuarioActualizo']
-    sql = f"UPDATE comun.tcierremes SET anulado = 'S', usuario_actualizo = '{usuario_actualizo}', fecha_actualizo = NOW()  WHERE codigo_cierre = {codigo_cierre} RETURNING codigo_cierre"
+    sql = f"UPDATE rol.tcierremes SET anulado = 'S', usuario_actualizo = '{usuario_actualizo}', fecha_actualizo = NOW()  WHERE codigo_cierre = {codigo_cierre} RETURNING codigo_cierre"
 
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')

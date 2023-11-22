@@ -54,14 +54,14 @@ async def obtener_grupos(request: Request):
 
 @router.get("/obtener_empleado_asignado")
 async def obtener_emplado_asignado(request: Request):
-    sql = "SELECT usuario_codigo FROM comun.tlugaresasignados"
+    sql = "SELECT usuario_codigo FROM rol.tlugaresasignados"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_empleados_asignados")
 async def obtener_empleados_asignados(request: Request, lugar: str):
-    sql = f"SELECT templeado.codigo, templeado.cedula_ruc, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom, talmacen.alm_calles || ', ' || talmacen.alm_ciud AS direccion FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo"
+    sql = f"SELECT templeado.codigo, templeado.cedula_ruc, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom, talmacen.alm_calles || ', ' || talmacen.alm_ciud AS direccion FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo"
     token = request.headers.get('token')
 
     if lugar not in [None, '', 'N']:
@@ -74,7 +74,7 @@ async def obtener_empleados_asignados(request: Request, lugar: str):
 
 @router.get("/obtener_horarios_asignados")
 async def obtener_empleados_asignados(request: Request, lugar: str):
-    sql = f"SELECT tturnosasignados.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom, tturnos.dias_trabajados, talmacen.alm_calles || ', ' || talmacen.alm_ciud AS direccion, tturnos.inicio1 || ' ' || tturnos.fin1 AS Horario_1, tturnos.inicio2 || ' ' || tturnos.fin2 AS Horario_2 FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN comun.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo"
+    sql = f"SELECT tturnosasignados.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom, tturnos.dias_trabajados, talmacen.alm_calles || ', ' || talmacen.alm_ciud AS direccion, tturnos.inicio1 || ' ' || tturnos.fin1 AS Horario_1, tturnos.inicio2 || ' ' || tturnos.fin2 AS Horario_2 FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.templeado ON tlugaresasignados.usuario_codigo = templeado.codigo INNER JOIN rol.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN rol.tturnos ON tturnosasignados.turno_codigo = tturnos.codigo"
     token = request.headers.get('token')
 
     if lugar not in [None, '', 'N']:
@@ -87,7 +87,7 @@ async def obtener_empleados_asignados(request: Request, lugar: str):
 
 @router.get("/obtener_empleados_horarios")
 async def obtener_empleados_horarios(request: Request):
-    sql = "SELECT usuario_codigo FROM comun.tturnosasignados WHERE turno_codigo IS NOT NULL"
+    sql = "SELECT usuario_codigo FROM rol.tturnosasignados WHERE turno_codigo IS NOT NULL"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "")
 
@@ -97,7 +97,7 @@ async def eliminar_horario_asignado(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
     usuario_codigo = data['usuario_codigo']
-    sql = f"DELETE FROM comun.tturnosasignados WHERE codigo = {usuario_codigo} RETURNING codigo"
+    sql = f"DELETE FROM rol.tturnosasignados WHERE codigo = {usuario_codigo} RETURNING codigo"
 
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')

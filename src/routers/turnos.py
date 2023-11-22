@@ -34,10 +34,10 @@ async def registrar_turno(request: Request):
 
     sql = ""
     if (inicio2 == "00:00" and fin2 == "00:00"):
-        sql = f"INSERT INTO comun.tturnos (nombre, dias_trabajados, inicio1, fin1) VALUES ('{nombre}', '{dias_trabajados}', '{inicio1}', '{fin1}') RETURNING codigo"
+        sql = f"INSERT INTO rol.tturnos (nombre, dias_trabajados, inicio1, fin1) VALUES ('{nombre}', '{dias_trabajados}', '{inicio1}', '{fin1}') RETURNING codigo"
 
     if (inicio2 != "00:00" and fin2 != "00:00"):
-        sql = f"INSERT INTO comun.tturnos (nombre, dias_trabajados, inicio1, fin1, inicio2, fin2) VALUES ('{nombre}', '{dias_trabajados}', '{inicio1}', '{fin1}', '{inicio2}', '{fin2}') RETURNING codigo"
+        sql = f"INSERT INTO rol.tturnos (nombre, dias_trabajados, inicio1, fin1, inicio2, fin2) VALUES ('{nombre}', '{dias_trabajados}', '{inicio1}', '{fin1}', '{inicio2}', '{fin2}') RETURNING codigo"
 
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
@@ -75,10 +75,10 @@ async def actualizar_turno(request: Request):
 
     sql = ""
     if (inicio2 == "00:00" and fin2 == "00:00"):
-        sql = f"UPDATE comun.tturnos SET nombre = '{nombre}', inicio1 = '{inicio1}', fin1 = '{fin1}', dias_trabajados = '{dias_trabajados}' WHERE codigo = {codigo} RETURNING codigo"
+        sql = f"UPDATE rol.tturnos SET nombre = '{nombre}', inicio1 = '{inicio1}', fin1 = '{fin1}', dias_trabajados = '{dias_trabajados}' WHERE codigo = {codigo} RETURNING codigo"
 
     if (inicio2 != "00:00" and fin2 != "00:00"):
-        sql = f"UPDATE comun.tturnos SET nombre = '{nombre}', inicio1 = '{inicio1}', fin1 = '{fin1}', inicio2 = '{inicio2}', fin2 = '{fin2}', dias_trabajados = '{dias_trabajados}' WHERE codigo = {codigo} RETURNING codigo"
+        sql = f"UPDATE rol.tturnos SET nombre = '{nombre}', inicio1 = '{inicio1}', fin1 = '{fin1}', inicio2 = '{inicio2}', fin2 = '{fin2}', dias_trabajados = '{dias_trabajados}' WHERE codigo = {codigo} RETURNING codigo"
 
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
@@ -104,7 +104,7 @@ async def actualizar_turno(request: Request):
 
 @router.get("/obtener_turnos")
 async def obtener_turnos(request: Request):
-    sql = f"SELECT * FROM comun.tturnos"
+    sql = f"SELECT * FROM rol.tturnos"
     token = request.headers.get('token')
     try:
         token_middleware.verify_token(token)
@@ -143,12 +143,12 @@ async def eliminar_turno(request: Request):
         token_middleware.verify_token(token)
         with Session(engine2) as session:
             # Verificar si hay registros relacionados en tturnosasignados
-            check_sql = f"SELECT COUNT(*) FROM comun.tturnosasignados WHERE turno_codigo = {codigo}"
+            check_sql = f"SELECT COUNT(*) FROM rol.tturnosasignados WHERE turno_codigo = {codigo}"
             count = session.execute(text(check_sql)).scalar()
             if count > 0:
                 return {"error": "S", "mensaje": "No se puede eliminar el horario porque está asignado"}
 
-            sql = f"DELETE FROM comun.tturnos WHERE codigo = {codigo} RETURNING codigo"
+            sql = f"DELETE FROM rol.tturnos WHERE codigo = {codigo} RETURNING codigo"
             rows = session.execute(text(sql)).fetchall()
             session.commit()
             objetos = [row._asdict() for row in rows]
@@ -159,7 +159,7 @@ async def eliminar_turno(request: Request):
 
 @router.get("/obtener_horarios")
 async def obtener_horarios(request: Request):
-    sql = f"SELECT codigo, nombre, inicio1, fin1, inicio2, fin2 FROM comun.tturnos"
+    sql = f"SELECT codigo, nombre, inicio1, fin1, inicio2, fin2 FROM rol.tturnos"
     token = request.headers.get('token')
 
     try:
@@ -201,13 +201,13 @@ async def asignar_horario(request: Request):
             # Contar las asignaciones existentes para el usuario
             existing_assignments = session.execute(
                 text(
-                    f"SELECT COUNT(*) FROM comun.tturnosasignados WHERE usuario_codigo = {usuario_codigo}")
+                    f"SELECT COUNT(*) FROM rol.tturnosasignados WHERE usuario_codigo = {usuario_codigo}")
             ).scalar()
 
             if existing_assignments >= 2:
                 return {"error": "S", "mensaje": "No se pueden asignar más de dos turnos por usuario."}
 
-            sql = f"INSERT INTO comun.tturnosasignados (usuario_codigo, turno_codigo) VALUES ('{usuario_codigo}', '{turno_codigo}') RETURNING codigo"
+            sql = f"INSERT INTO rol.tturnosasignados (usuario_codigo, turno_codigo) VALUES ('{usuario_codigo}', '{turno_codigo}') RETURNING codigo"
 
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -219,7 +219,7 @@ async def asignar_horario(request: Request):
 
 @router.get("/obtener_lugar_horario")
 async def obtener_lugar_horario(request: Request):
-    sql = f"SELECT talmacen.alm_nomcom FROM comun.tlugaresasignados INNER JOIN comun.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN comun.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo"
+    sql = f"SELECT talmacen.alm_nomcom FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo INNER JOIN rol.tturnosasignados ON tturnosasignados.usuario_codigo = tlugaresasignados.usuario_codigo"
     token = request.headers.get('token')
 
     try:
