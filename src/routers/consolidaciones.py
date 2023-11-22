@@ -4,17 +4,17 @@ from src import config
 from fastapi import Request
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
+from src.routers.controllers import SessionHandler
 from src.middleware import token_middleware, acceso_middleware
 
-# Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
-db_uri1 = config.db_uri1
-engine1 = create_engine(db_uri1)
-
-db_uri2 = config.db_uri2
-engine2 = create_engine(db_uri2)
+# Establish connections to PostgreSQL databases for "apromed"
+engine = create_engine(config.db_uri2)
 
 # API Route Definitions
 router = fastapi.APIRouter()
+
+# Crear una instancia de la clase con tu motor de base de datos
+query_handler = SessionHandler(engine)
 
 
 async def registrar_detalle_cierre(codigo: int, normal: float, suplementaria: float, atrasos: float, usuario_codigo: int):
@@ -27,7 +27,7 @@ async def registrar_detalle_cierre(codigo: int, normal: float, suplementaria: fl
 
     sql = f"INSERT INTO comun.tdetallemes (codigo_cierre, normal, suplementaria, atrasos, usuario_codigo) VALUES ('{codigo}', '{normal}', '{suplementaria}', '{atrasos}', '{usuario_codigo}') RETURNING codigo_detalle"
 
-    with Session(engine2) as session:
+    with Session(engine) as session:
         try:
             # Ejecutar la consulta SQL
             rows = session.execute(text(sql)).fetchall()
@@ -75,7 +75,7 @@ async def registrar_consolidacion(request: Request):
 
     try:
         token_middleware.verify_token(token)
-        with Session(engine2) as session:
+        with Session(engine) as session:
             # Verificar si ya existe un registro
             existing_cierre = session.execute(text(verifica_sql)).fetchone()
             if existing_cierre:
@@ -105,7 +105,7 @@ async def listar_consolidaciones(request: Request, mes: int, anio: int):
 
     try:
         token_middleware.verify_token(token)
-        with Session(engine2) as session:
+        with Session(engine) as session:
             codigo = session.execute(text(verifica_sql)).fetchone()
 
             if (codigo == None):
@@ -142,14 +142,4 @@ async def anular_consolidacion(request: Request):
             "objetos": "",
         }
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-
-            return {"error": "N", "mensaje": "Registro anulado exitosamente", "objetos": objetos}
-
-    except Exception as error:
-        return {"error": "S", "mensaje": str(error)}
+    return query_handler.execute_sql_token(sql, token, "Registro anulado exitosamente")

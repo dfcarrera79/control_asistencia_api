@@ -2,40 +2,18 @@ import json
 import fastapi
 from src import config
 from fastapi import Request
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine, text
-from src.middleware import token_middleware, acceso_middleware
-from sqlalchemy import text, create_engine
+from sqlalchemy import create_engine
+from src.middleware import acceso_middleware
+from src.routers.controllers import SessionHandler
 
-
-# Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
-db_uri1 = config.db_uri1
-engine1 = create_engine(db_uri1)
-
-db_uri2 = config.db_uri2
-engine2 = create_engine(db_uri2)
+# Establish connections to PostgreSQL databases for "apromed"
+engine = create_engine(config.db_uri2)
 
 # API Route Definitions
 router = fastapi.APIRouter()
 
-
-@router.get("/tiene_acceso")
-async def tiene_acceso(usucodigo: int, modcodigo: int, accion: int):
-    sql = f"SELECT * FROM usuario.tiene_acceso({usucodigo}, {modcodigo}, {accion})"
-    try:
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            acceso = [row._asdict() for row in rows]
-            if acceso[0]['tiene_acceso'] != '':
-                return {
-                    "error": "S",
-                    "mensaje": acceso[0]['tiene_acceso'],
-                    "objetos": "",
-                }
-            return {"error": "N", "mensaje": acceso[0]['tiene_acceso'], "objetos": ""}
-    except Exception as e:
-        print(f"Error: {e}")
-        return {"error": "S", "mensaje": str(e)}
+# Crear una instancia de la clase con tu motor de base de datos
+query_handler = SessionHandler(engine)
 
 
 @router.get("/obtener_dispositivos")
@@ -48,21 +26,7 @@ async def obtener_dispositivos(request: Request, departamento: str):
 
     sql += " ORDER BY nombre_completo"
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            dispositivos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": dispositivos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_fotos")
@@ -75,21 +39,7 @@ async def obtener_fotos(request: Request, departamento: str):
 
     sql += " ORDER BY nombre_completo"
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            fotos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": fotos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.delete('/eliminar_foto')
@@ -109,15 +59,8 @@ async def eliminar_foto(request: Request):
         }
 
     sql = f"DELETE FROM comun.tfoto WHERE id_foto = {id_foto} RETURNING path, usuario_codigo"
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Registro eliminado exitosamente", "objetos": objetos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+
+    return query_handler.execute_sql_token(sql, token, "Registro eliminado exitosamente")
 
 
 @router.delete('/eliminar_cel')
@@ -137,16 +80,8 @@ async def eliminar_cel(request: Request):
         }
 
     sql = f"DELETE FROM comun.tdispositivo WHERE codigo = {codigo} RETURNING id_dispositivo, usuario_codigo"
-    print('[SQL]: ', sql)
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Registro eliminado exitosamente", "objetos": objetos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+
+    return query_handler.execute_sql_token(sql, token, "Registro eliminado exitosamente")
 
 
 @router.post("/copiar_path_id")
@@ -158,15 +93,7 @@ async def copiar_path_id(request: Request):
     anulado_por = data['anulado_por']
     token = request.headers.get('token')
     sql = f"INSERT INTO comun.trespaldofotocel (usuario_codigo, pathorid, anulado_por) VALUES({usuario_codigo}, '{pathorid}', {anulado_por}) RETURNING id_registro"
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Registro anulado exitosamente", "objetos": objetos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "Registro anulado exitosamente")
 
 
 @router.get("/obtener_anulados")
@@ -179,18 +106,4 @@ async def obtener_anulados(request: Request, departamento: str):
 
     sql += " ORDER BY nombre_completo"
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            registros = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": registros}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")

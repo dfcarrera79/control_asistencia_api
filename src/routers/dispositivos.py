@@ -5,12 +5,8 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
 
-# Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
-db_uri1 = config.db_uri1
-engine1 = create_engine(db_uri1)
-
-db_uri2 = config.db_uri2
-engine2 = create_engine(db_uri2)
+# Establish connections to PostgreSQL databases for "apromed"
+engine = create_engine(config.db_uri2)
 
 # API Route Definitions
 router = fastapi.APIRouter()
@@ -27,7 +23,7 @@ async def registrar_dispositivo(request: Request):
 
     try:
         sql = f"INSERT INTO comun.tdispositivo (usuario_codigo, id_dispositivo) VALUES ('{usuario_codigo}', '{id_dispositivo.strip()}') RETURNING codigo"
-        with Session(engine2) as session:
+        with Session(engine) as session:
             existe_registro = session.execute(text(verifica_sql)).fetchone()
             if existe_registro:
                 return {"error": "S", "mensaje": 'Ya está registrado un dispositivo a su cuenta.', "objetos": []}
@@ -43,7 +39,7 @@ async def registrar_dispositivo(request: Request):
 async def validar_dispositivo(id: str):
     sql = f"SELECT * FROM comun.tdispositivo WHERE TRIM(id_dispositivo) LIKE '{id.strip()}'"
     try:
-        with Session(engine2) as session:
+        with Session(engine) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
                 return {

@@ -149,3 +149,10 @@ def calcular_atrasos(inicio1, fin1, inicio2, fin2, entrada, salida):
                 atrasos += atraso.total_seconds() / 60
 
     return atrasos
+
+
+def generate_random_filename():
+    # Generate a random string of letters and digits
+    letters_digits = string.ascii_letters + string.digits
+    random_filename = ''.join(random.choice(letters_digits) for _ in range(10))
+    return random_filename

@@ -1,21 +1,19 @@
 import os
 import json
-import random
-import string
 import shutil
 import fastapi
-from datetime import datetime, timedelta
-from urllib.parse import unquote
 from PIL import Image
-from pydantic import BaseModel
 from src import config
 from src.utils import utils
-from fastapi.responses import JSONResponse
-from src.middleware import token_middleware, acceso_middleware
+from pydantic import BaseModel
+from urllib.parse import unquote
 from sqlalchemy.orm import Session
-from fastapi import Request
+from datetime import datetime, timedelta
+from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text
-from fastapi import UploadFile, File
+from fastapi import Request, UploadFile, File
+from src.routers.controllers import SessionHandler
+from src.middleware import token_middleware, acceso_middleware
 
 # Models
 
@@ -25,22 +23,14 @@ class RegistrarModel(BaseModel):
     codigo: int
 
 
-# Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
-db_uri1 = config.db_uri1
-engine1 = create_engine(db_uri1)
+# Establish connections to PostgreSQL databases for "apromed"
+engine = create_engine(config.db_uri2)
 
-db_uri2 = config.db_uri2
-engine2 = create_engine(db_uri2)
+# Crear una instancia de la clase con tu motor de base de datos
+query_handler = SessionHandler(engine)
 
 # API Route Definitions
 router = fastapi.APIRouter()
-
-
-def generate_random_filename():
-    # Generate a random string of letters and digits
-    letters_digits = string.ascii_letters + string.digits
-    random_filename = ''.join(random.choice(letters_digits) for _ in range(10))
-    return random_filename
 
 
 @router.post("/subir_foto")
@@ -50,7 +40,7 @@ async def subir_foto(file: UploadFile = File(...)):
         os.makedirs(directorio, exist_ok=True)
 
         # Generate a random filename
-        random_filename = generate_random_filename()
+        random_filename = utils.generate_random_filename()
         file_extension = os.path.splitext(file.filename)[1]
         random_filename_with_extension = random_filename + file_extension
 
@@ -83,20 +73,13 @@ async def subir_foto(file: UploadFile = File(...)):
 async def registrar_foto(data: RegistrarModel):
     filepath = data.filepath
     codigo = data.codigo
-    try:
-        with Session(engine2) as session:
-            sql = f"INSERT INTO comun.tfoto (usuario_codigo, path) VALUES('{codigo}', '{filepath}') returning id_foto"
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": objetos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    sql = f"INSERT INTO comun.tfoto (usuario_codigo, path) VALUES('{codigo}', '{filepath}') returning id_foto"
+    return query_handler.execute_sql(sql, "")
 
 
 async def horarios_asignados(codigo: int):
     sql = f"SELECT turno_codigo FROM comun.tturnosasignados WHERE usuario_codigo = {codigo}"
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
         return objetos
@@ -104,7 +87,7 @@ async def horarios_asignados(codigo: int):
 
 async def lugar_asignado(codigo: int):
     sql = f"SELECT coordenadas_codigo FROM comun.tlugaresasignados WHERE usuario_codigo = {codigo}"
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
         return objetos
@@ -121,6 +104,7 @@ async def registrar_horas_suplementarias(request: Request):
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
     acceso = await acceso_middleware.tiene_acceso(usucodigo, 830, 1)
+    sql = f"INSERT INTO comun.thoras_suplementarias (usuario_codigo, fecha, horas, asignado_por) VALUES ({usuario_codigo}, '{fecha}', {horas}, {asignado_por}) RETURNING codigo"
 
     if acceso[0]['tiene_acceso'] != '':
         return {
@@ -129,16 +113,7 @@ async def registrar_horas_suplementarias(request: Request):
             "objetos": "",
         }
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            sql = f"INSERT INTO comun.thoras_suplementarias (usuario_codigo, fecha, horas, asignado_por) VALUES ({usuario_codigo}, '{fecha}', {horas}, {asignado_por}) RETURNING codigo"
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Registro de horas suplementarias exitoso", "objetos": objetos}
-    except Exception as error:
-        return {"error": "S", "mensaje": str(error)}
+    return query_handler.execute_sql_token(sql, token, "Registro de horas suplementarias exitoso")
 
 
 @router.delete('/eliminar_suplementarias')
@@ -157,16 +132,9 @@ async def eliminar_suplementarias(request: Request):
             "objetos": "",
         }
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            sql = f"DELETE FROM comun.thoras_suplementarias WHERE codigo = {codigo} RETURNING codigo"
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Registro de horas suplementarias eliminado exitosamente", "objetos": objetos}
-    except Exception as error:
-        return {"error": "S", "mensaje": str(error)}
+    sql = f"DELETE FROM comun.thoras_suplementarias WHERE codigo = {codigo} RETURNING codigo"
+
+    return query_handler.execute_sql_token(sql, token, "Registro de horas suplementarias eliminado exitosamente")
 
 
 @router.get("/obtener_horas_suplementarias")
@@ -182,20 +150,7 @@ async def obtener_horas_suplementarias(request: Request, departamento, desde: st
 
     sql += " ORDER BY nombre_completo_usuario"
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-            sumplementarias = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": sumplementarias}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.post("/registrar_entrada")
@@ -215,14 +170,7 @@ async def registrar_entrada(request: Request):
 
     sql = f"INSERT INTO comun.tasistencias (usuario_codigo, entrada, horarios, lugar_asignado) VALUES ({employee_id}, NOW(), '{json.dumps(horarios)}', {lugar[0]['coordenadas_codigo']}) RETURNING codigo"
 
-    try:
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Registro de entrada exitoso", "objetos": objetos}
-    except Exception as error:
-        return {"error": "S", "mensaje": str(error)}
+    return query_handler.execute_sql(sql, "Registro de entrada exitoso")
 
 
 @router.put("/registrar_salida")
@@ -241,14 +189,8 @@ async def registrar_salida(request: Request):
         return {"error": "S", "mensaje": "No tiene un lugar de trabajo asignado"}
 
     sql = f"UPDATE comun.tasistencias SET salida = NOW() WHERE codigo = (SELECT codigo FROM comun.tasistencias WHERE usuario_codigo = {employee_id} ORDER BY entrada DESC LIMIT 1) AND salida IS NULL RETURNING codigo"
-    try:
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Registro de salida exitoso", "objetos": objetos}
-    except Exception as error:
-        return {"error": "S", "mensaje": str(error)}
+
+    return query_handler.execute_sql(sql, "Registro de salida exitoso")
 
 
 @router.get("/obtener_numero_paginas")
@@ -256,21 +198,7 @@ async def obtener_numero_paginas(request: Request, usuario_codigo, fecha_desde, 
     token = request.headers.get('token')
     sql = f"SELECT COUNT(*) FROM comun.tasistencias WHERE usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            return {"error": "N", "mensaje": "", "objetos": rows[0][0]}
-
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_numero_paginas_atrasos")
@@ -314,7 +242,7 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
             "objetos": "",
         }
 
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(query)).fetchall()
         if len(rows) == 0:
             return {
@@ -342,8 +270,6 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
 
     try:
         token_middleware.verify_token(token)
-        # with Session(engine2) as session:
-        # turnos = session.execute(text(sql)).fetchall()
 
         atrasos = []
 
@@ -549,7 +475,7 @@ async def obtener_asistencias(request: Request, usuario_codigo, fecha_desde, fec
 
     try:
         token_middleware.verify_token(token)
-        with Session(engine2) as session:
+        with Session(engine) as session:
             rows = session.execute(text(query)).fetchall()
             if len(rows) == 0:
                 return {
@@ -580,7 +506,7 @@ async def empleados_asignados(lugar: str):
 
     sql += " ORDER BY nombre_completo"
 
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
         return objetos
@@ -589,7 +515,7 @@ async def empleados_asignados(lugar: str):
 async def excepciones_autorizadas(codigo: int):
     sql = f"SELECT usuario_codigo, dias FROM comun.texcepciones WHERE usuario_codigo = {codigo} AND autorizado = true;"
 
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
         dias_list = [d['dias'] for d in objetos]
@@ -599,7 +525,7 @@ async def excepciones_autorizadas(codigo: int):
 
 async def empleados_asistencias():
     sql = "SELECT usuario_codigo FROM comun.tasistencias ORDER BY usuario_codigo"
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
         return objetos
@@ -607,7 +533,7 @@ async def empleados_asistencias():
 
 async def calcular_suplementarias(usuario_codigo, fecha_desde, fecha_hasta):
     sql = f"SELECT SUM(horas) FROM comun.thoras_suplementarias WHERE usuario_codigo = {usuario_codigo} AND fecha BETWEEN '{fecha_desde}' AND '{fecha_hasta}'"
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
         return objetos[0]['sum']
@@ -621,7 +547,7 @@ async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
 
     excepciones = await excepciones_autorizadas(usuario_codigo)
 
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(query)).fetchall()
         if len(rows) == 0:
             return {
@@ -748,7 +674,7 @@ async def calcular(usuario_codigo, fecha_desde, fecha_hasta):
 
 async def get_horarios(codigo: int):
     sql = f"SELECT DISTINCT horarios FROM comun.tasistencias WHERE usuario_codigo = {codigo}"
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         objetos = [row._asdict() for row in rows]
         horarios = [objeto['turno_codigo']
@@ -763,7 +689,7 @@ async def verificar_horarios_asignados(request: Request, codigo: int):
     sql = f"SELECT DISTINCT usuario_codigo FROM comun.tasistencias"
     try:
         token_middleware.verify_token(token)
-        with Session(engine2) as session:
+        with Session(engine) as session:
             rows = session.execute(text(sql)).fetchall()
             if len(rows) == 0:
                 return {
@@ -795,7 +721,7 @@ async def verificar_horarios_asignados(request: Request, codigo: int):
 
 async def get_horario_info(codigo: int):
     sql = f"SELECT dias_trabajados, inicio1, fin1, inicio2, fin2 FROM comun.tturnos WHERE codigo = {codigo}"
-    with Session(engine2) as session:
+    with Session(engine) as session:
         rows = session.execute(text(sql)).fetchall()
         return rows
 
@@ -806,7 +732,7 @@ async def calcular_horas_atrasos(request: Request, lugar: str, fecha_desde: str,
 
     try:
         token_middleware.verify_token(token)
-        with Session(engine2) as session:
+        with Session(engine) as session:
             employees = await empleados_asignados(lugar)
             codigos = await empleados_asistencias()
 

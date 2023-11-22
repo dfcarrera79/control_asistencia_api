@@ -1,22 +1,19 @@
 import json
 import fastapi
 from src import config
-from src.utils import utils
-from src.middleware import token_middleware, acceso_middleware
-from sqlalchemy.orm import Session
-from fastapi import HTTPException, Request
-from sqlalchemy import create_engine, text
+from fastapi import Request
+from sqlalchemy import create_engine
+from src.middleware import acceso_middleware
+from src.routers.controllers import SessionHandler
 
-
-# Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
-db_uri1 = config.db_uri1
-engine1 = create_engine(db_uri1)
-
-db_uri2 = config.db_uri2
-engine2 = create_engine(db_uri2)
+# Establish connections to PostgreSQL databases for "apromed"
+engine = create_engine(config.db_uri2)
 
 # API Route Definitions
 router = fastapi.APIRouter()
+
+# Crear una instancia de la clase con tu motor de base de datos
+query_handler = SessionHandler(engine)
 
 
 @router.get("/obtener_empleado")
@@ -29,21 +26,8 @@ async def obtener_empleado(request: Request, departamento: str):
         sql += f"WHERE TPlantillaRol.descripcion LIKE '{departamento}'"
 
     sql += " ORDER BY apellidos"
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
 
-            empleados = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": empleados}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_empleado_suplementarias")
@@ -56,21 +40,8 @@ async def obtener_empleado(request: Request, departamento: str):
         sql += f"WHERE TPlantillaRol.descripcion LIKE '{departamento}'"
 
     sql += " ORDER BY apellidos"
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
 
-            empleados = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": empleados}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_grupos")
@@ -78,41 +49,14 @@ async def obtener_grupos(request: Request):
     sql = f"SELECT codigo, descripcion FROM rol.TPlantillaRol"
     token = request.headers.get('token')
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            grupos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": grupos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_empleado_asignado")
 async def obtener_emplado_asignado(request: Request):
     sql = "SELECT usuario_codigo FROM comun.tlugaresasignados"
     token = request.headers.get('token')
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            return {"error": "N", "mensaje": "", "objetos": rows}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_empleados_asignados")
@@ -125,21 +69,7 @@ async def obtener_empleados_asignados(request: Request, lugar: str):
 
     sql += " ORDER BY nombre_completo"
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            asignaciones = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": asignaciones}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_horarios_asignados")
@@ -152,41 +82,14 @@ async def obtener_empleados_asignados(request: Request, lugar: str):
 
     sql += " ORDER BY nombre_completo"
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            asignaciones = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "", "objetos": asignaciones}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.get("/obtener_empleados_horarios")
 async def obtener_empleados_horarios(request: Request):
     sql = "SELECT usuario_codigo FROM comun.tturnosasignados WHERE turno_codigo IS NOT NULL"
     token = request.headers.get('token')
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            if len(rows) == 0:
-                return {
-                    "error": "S",
-                    "mensaje": "",
-                    "objetos": rows,
-                }
-
-            return {"error": "N", "mensaje": "", "objetos": rows}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "")
 
 
 @router.delete("/eliminar_horario_asignado")
@@ -207,12 +110,4 @@ async def eliminar_horario_asignado(request: Request):
             "objetos": "",
         }
 
-    try:
-        token_middleware.verify_token(token)
-        with Session(engine2) as session:
-            rows = session.execute(text(sql)).fetchall()
-            session.commit()
-            objetos = [row._asdict() for row in rows]
-            return {"error": "N", "mensaje": "Asignación de horario eliminada correctamente", "objetos": objetos}
-    except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+    return query_handler.execute_sql_token(sql, token, "Asignación de horario eliminada correctamente", "objetos")
