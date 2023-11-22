@@ -1,5 +1,6 @@
 ### Local files
 /tests/
+poetry.lock
 
 ### Linux ###
 *~
