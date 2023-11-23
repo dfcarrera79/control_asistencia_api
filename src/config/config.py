@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Access the environment variables
-db_uri1 = os.getenv("DB_URI1")
-db_uri2 = os.getenv("DB_URI2")
+db_uri1 = os.getenv("PROD_DB_URI")
+db_uri2 = os.getenv("DEV_DB_URI")
 
 email = {
     "host": os.getenv("EMAIL_HOST"),
@@ -19,3 +19,6 @@ email = {
 secret_key = os.getenv("SECRET_KEY")
 encryption_key = os.getenv("ENCRYPTION_KEY")
 algorithm = os.getenv("ALGORITHM")
+
+path1 = os.getenv("PROD_PATH")
+path2 = os.getenv("DEV_PATH")

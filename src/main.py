@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
+from src.config import config
 from src.routers import turnos
 from src.routers import usuarios
 from src.routers import registros
@@ -9,6 +9,7 @@ from src.routers import exepciones
 from src.routers import asistencias
 from src.routers import dispositivos
 from src.routers import consolidaciones
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -33,5 +34,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-fotos_dir = "C:/Projects/ControlAsistencia/control_asistenacia_api/src/public/fotos"
+fotos_dir = config.path2
 app.mount("/static", StaticFiles(directory=fotos_dir))
