@@ -62,7 +62,7 @@ async def autorizar_exepcion(request: Request):
             "mensaje": acceso[0]['tiene_acceso'],
             "objetos": "",
         }
-    sql = f"UPDATE rol.texcepciones SET autorizado_por = '{autorizado_por}', autorizado = true WHERE id = '{usuario_codigo}' RETURNING id"
+    sql = f"UPDATE rol.texcepciones SET autorizado_por = {autorizado_por}, autorizado = true WHERE id = '{usuario_codigo}' RETURNING id"
 
     return query_handler.execute_sql_token(sql, token, "Excepción autorizada con exitoso")
 

@@ -67,7 +67,7 @@ async def obtener_coordenadas(request: Request, alm_codigo: int):
 @router.get("/obtener_coordenadas_almacen")
 async def obtener_coordenadas(alm_nomcom: str):
     sql = f"SELECT lat, long FROM rol.tcoordenadas INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE alm_nomcom LIKE '{alm_nomcom}'"
-    return query_handler.execute_sql_token(sql, "")
+    return query_handler.execute_sql(sql, "")
 
 
 @router.get("/obtener_lugares")

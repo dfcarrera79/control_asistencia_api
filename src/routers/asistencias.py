@@ -231,6 +231,8 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
 
     query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM rol.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN rol.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada"
 
+    print('[QUERY]: ', query)
+
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
     acceso = await acceso_middleware.tiene_acceso(usucodigo, 832, 1)
@@ -695,7 +697,7 @@ async def verificar_horarios_asignados(request: Request, codigo: int):
                 return {
                     "error": "S",
                     "mensaje": "",
-                    "objetos": rows,
+                    "objetos": False,
                 }
             codigos = [row._asdict() for row in rows]
             valores = [d['usuario_codigo'] for d in codigos]
@@ -716,7 +718,7 @@ async def verificar_horarios_asignados(request: Request, codigo: int):
             return {"error": "N", "mensaje": "", "objetos": horario_asignado}
 
     except Exception as e:
-        return {"error": "S", "mensaje": str(e)}
+        return {"error": "S", "mensaje": str(e), "objetos": horario_asignado}
 
 
 async def get_horario_info(codigo: int):
