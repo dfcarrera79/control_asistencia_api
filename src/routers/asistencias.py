@@ -3,8 +3,8 @@ import json
 import shutil
 import fastapi
 from PIL import Image
-from utils import utils
-from config import config
+from src.utils import utils
+from src.config import config
 from pydantic import BaseModel
 from urllib.parse import unquote
 from sqlalchemy.orm import Session
@@ -12,10 +12,12 @@ from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text
 from fastapi import Request, UploadFile, File
-from routers.controllers import SessionHandler
-from middleware import token_middleware, acceso_middleware
+from src.routers.controllers import SessionHandler
+from src.middleware import token_middleware, acceso_middleware
 
 # Models
+
+
 class RegistrarModel(BaseModel):
     filepath: str
     codigo: int
@@ -660,12 +662,12 @@ async def verificar_horarios_asignados(request: Request, codigo: int):
                 nuevos_valores.append(nuevo_valor)
 
             codigos = [
-                numero for sublista in nuevos_valores for numero in sublista]	
+                numero for sublista in nuevos_valores for numero in sublista]
 
             horario_asignado = False
             if (codigo in codigos):
-                horario_asignado = True		
-		
+                horario_asignado = True
+
             #     nuevos_valores.append(get_horarios(valor))
             return {"error": "N", "mensaje": "", "objetos": horario_asignado}
 

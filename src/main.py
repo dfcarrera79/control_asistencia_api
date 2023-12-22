@@ -1,16 +1,17 @@
-# import ssl
+import ssl
 import uvicorn
 from fastapi import FastAPI
-from routers import turnos
-from routers import selfie
-from routers import usuarios
-from routers import registros
-from routers import empleados
-from routers import almacenes
-from routers import exepciones
-from routers import asistencias
-from routers import dispositivos
-from routers import consolidaciones
+from src.config import config
+from src.routers import turnos
+# from src.routers import selfie
+from src.routers import usuarios
+from src.routers import registros
+from src.routers import empleados
+from src.routers import almacenes
+from src.routers import exepciones
+from src.routers import asistencias
+from src.routers import dispositivos
+from src.routers import consolidaciones
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 # from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
@@ -31,7 +32,7 @@ app = FastAPI(
 
 # API endpoints
 app.include_router(turnos.router)
-app.include_router(selfie.router)
+# app.include_router(selfie.router)
 app.include_router(usuarios.router)
 app.include_router(registros.router)
 app.include_router(empleados.router)
