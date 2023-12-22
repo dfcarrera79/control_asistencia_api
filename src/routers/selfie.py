@@ -6,7 +6,7 @@ import string
 import fastapi
 import numpy as np
 from PIL import Image
-from src.config import config
+from config import config
 import face_recognition
 from fastapi import Request
 from sqlalchemy.orm import Session
@@ -80,7 +80,7 @@ async def subir_foto(file: UploadFile = File(...)):
 
         return JSONResponse({
             "error": "N",
-            "mensaje": "File uploaded and converted to WebP format successfully",
+            "mensaje": "Foto subida exitosamente",
             "objetos": directory
         })
     except Exception as e:

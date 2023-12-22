@@ -3,8 +3,8 @@ import json
 import shutil
 import fastapi
 from PIL import Image
-from src.utils import utils
-from src.config import config
+from utils import utils
+from config import config
 from pydantic import BaseModel
 from urllib.parse import unquote
 from sqlalchemy.orm import Session
@@ -12,12 +12,10 @@ from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text
 from fastapi import Request, UploadFile, File
-from src.routers.controllers import SessionHandler
-from src.middleware import token_middleware, acceso_middleware
+from routers.controllers import SessionHandler
+from middleware import token_middleware, acceso_middleware
 
 # Models
-
-
 class RegistrarModel(BaseModel):
     filepath: str
     codigo: int
@@ -31,50 +29,6 @@ query_handler = SessionHandler(engine)
 
 # API Route Definitions
 router = fastapi.APIRouter()
-
-
-@router.post("/subir_foto")
-async def subir_foto(file: UploadFile = File(...)):
-    directorio = os.path.join(os.getcwd(), 'src', 'public', 'fotos')
-    try:
-        os.makedirs(directorio, exist_ok=True)
-
-        # Generate a random filename
-        random_filename = utils.generate_random_filename()
-        file_extension = os.path.splitext(file.filename)[1]
-        random_filename_with_extension = random_filename + file_extension
-
-        # Save the file with the random filename
-        file_path = os.path.join(directorio, random_filename_with_extension)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-
-        # Convert the image to WebP format
-        image = Image.open(file_path)
-        webp_path = os.path.splitext(file_path)[0] + ".webp"
-        image.save(webp_path, "WebP")
-
-        # Delete the original image
-        os.remove(file_path)
-
-        # Concatenate directory and filename
-        directory = os.path.join(directorio, os.path.basename(webp_path))
-
-        return JSONResponse({
-            "error": "N",
-            "mensaje": "Foto registrada exitosamente",
-            "objetos": directory
-        })
-    except Exception as e:
-        return JSONResponse({"error": "S", "mensaje": str(e)})
-
-
-@router.post("/registrar_foto")
-async def registrar_foto(data: RegistrarModel):
-    filepath = data.filepath
-    codigo = data.codigo
-    sql = f"INSERT INTO rol.tfoto (usuario_codigo, path) VALUES('{codigo}', '{filepath}') returning id_foto"
-    return query_handler.execute_sql(sql, "")
 
 
 async def horarios_asignados(codigo: int):
@@ -230,8 +184,6 @@ async def obtener_atrasos(request: Request, usuario_codigo, fecha_desde, fecha_h
     fecha_hasta = fecha_hasta + timedelta(days=1) - timedelta(seconds=1)
 
     query = f"SELECT tasistencias.codigo, templeado.nombres || ' ' || templeado.apellidos AS nombre_completo, talmacen.alm_nomcom as lugar_asignado, entrada, salida FROM rol.tasistencias INNER JOIN rol.templeado ON tasistencias.usuario_codigo = templeado.codigo INNER JOIN rol.tlugaresasignados ON tasistencias.usuario_codigo = tlugaresasignados.usuario_codigo INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo WHERE tasistencias.usuario_codigo = {usuario_codigo} AND entrada BETWEEN '{fecha_desde}' AND '{fecha_hasta}' ORDER BY entrada"
-
-    print('[QUERY]: ', query)
 
     token = request.headers.get('token')
     usucodigo = request.headers.get('usucodigo')
@@ -708,12 +660,12 @@ async def verificar_horarios_asignados(request: Request, codigo: int):
                 nuevos_valores.append(nuevo_valor)
 
             codigos = [
-                numero for sublista in nuevos_valores for numero in sublista]
+                numero for sublista in nuevos_valores for numero in sublista]	
 
             horario_asignado = False
             if (codigo in codigos):
-                horario_asignado = True
-
+                horario_asignado = True		
+		
             #     nuevos_valores.append(get_horarios(valor))
             return {"error": "N", "mensaje": "", "objetos": horario_asignado}
 

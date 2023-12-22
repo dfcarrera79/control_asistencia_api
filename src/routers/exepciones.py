@@ -1,10 +1,10 @@
 import json
 import fastapi
-from src.config import config
+from config import config
 from fastapi import Request
 from sqlalchemy import create_engine
-from src.middleware import acceso_middleware
-from src.routers.controllers import SessionHandler
+from middleware import acceso_middleware
+from routers.controllers import SessionHandler
 
 # Establish connections to PostgreSQL databases for "apromed"
 engine = create_engine(config.db_uri2)

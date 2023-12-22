@@ -1,6 +1,6 @@
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from src.middleware import token_middleware
+from middleware import token_middleware
 
 
 class SessionHandler:
