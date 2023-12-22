@@ -3,8 +3,8 @@ import json
 import shutil
 import fastapi
 from PIL import Image
-from src.utils import utils
-from src.config import config
+from utils import utils
+from config import config
 from pydantic import BaseModel
 from urllib.parse import unquote
 from sqlalchemy.orm import Session
@@ -12,8 +12,8 @@ from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text
 from fastapi import Request, UploadFile, File
-from src.routers.controllers import SessionHandler
-from src.middleware import token_middleware, acceso_middleware
+from routers.controllers import SessionHandler
+from middleware import token_middleware, acceso_middleware
 
 # Models
 

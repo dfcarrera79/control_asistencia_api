@@ -1,6 +1,6 @@
 import json
 import fastapi
-from src.config import config
+from config import config
 from fastapi import Request
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text

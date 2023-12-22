@@ -1,18 +1,18 @@
-# import os
-# import json
-# import random
-# import shutil
-# import string
-# import fastapi
-# import numpy as np
-# from PIL import Image
-# from src.config import config
-# import face_recognition
-# from fastapi import Request
-# from sqlalchemy.orm import Session
-# from sqlalchemy import create_engine, text
-# from fastapi.responses import JSONResponse
-# from fastapi import FastAPI, UploadFile, File
+import os
+import json
+import random
+import shutil
+import string
+import fastapi
+import numpy as np
+from PIL import Image
+from src.config import config
+import face_recognition
+from fastapi import Request
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, text
+from fastapi.responses import JSONResponse
+from fastapi import FastAPI, UploadFile, File
 
 
 # # Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
@@ -78,13 +78,13 @@
 #         # Concatenate directory and filename
 #         directory = os.path.join(directorio, os.path.basename(webp_path))
 
-#         return JSONResponse({
-#             "error": "N",
-#             "mensaje": "File uploaded and converted to WebP format successfully",
-#             "objetos": directory
-#         })
-#     except Exception as e:
-#         return JSONResponse({"error": "S", "mensaje": str(e)})
+        return JSONResponse({
+            "error": "N",
+            "mensaje": "File uploaded and converted to WebP format successfully",
+            "objetos": directory
+        })
+    except Exception as e:
+        return JSONResponse({"error": "S", "mensaje": str(e)})
 
 
 # @router.post("/comparar_fotos/{codigo}")

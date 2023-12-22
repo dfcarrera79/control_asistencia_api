@@ -1,5 +1,5 @@
 # from fastapi import Request
-from src.utils import utils
+from utils import utils
 
 
 def verify_token(token: str):

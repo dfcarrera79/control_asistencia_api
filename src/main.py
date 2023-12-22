@@ -1,9 +1,9 @@
-import ssl
+# import ssl
 import uvicorn
 from fastapi import FastAPI
 from src.config import config
 from src.routers import turnos
-# from src.routers import selfie
+from src.routers import selfie
 from src.routers import usuarios
 from src.routers import registros
 from src.routers import empleados

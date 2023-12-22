@@ -1,8 +1,8 @@
 import json
 import fastapi
 from fastapi import Request
-from src.utils import utils
-from src.config import config
+from utils import utils
+from config import config
 from sqlalchemy.orm import Session
 from email.message import EmailMessage
 from sqlalchemy import create_engine, text
