@@ -22,7 +22,7 @@ class RegistrarModel(BaseModel):
 
 
 # Establish connections to PostgreSQL databases for "apromed"
-engine = create_engine(config.db_uri)
+engine = create_engine(config.db_uri2)
 
 # Crear una instancia de la clase con tu motor de base de datos
 query_handler = SessionHandler(engine)

@@ -3,8 +3,7 @@ name = "control-asistencia"
 version = "0.1.0"
 description = "Backend para la aplicacion de control de asistencia de Farmacias Americanas y la distribuidora Apromed"
 authors = ["dfcarrera79 <44879886+dfcarrera79@users.noreply.github.com>"]
-readme = "README.md"
-packages = [{ include = "control_asistencia" }]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.10"
@@ -18,7 +17,9 @@ numpy = "^1.26.2"
 uvicorn = "^0.24.0.post1"
 psycopg2 = "^2.9.9"
 python-multipart = "^0.0.6"
-# face-recognition = "^1.3.0"
+face-recognition = "^1.3.0"
+xmltodict = "^0.13.0"
+requests = "^2.32.3"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

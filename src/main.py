@@ -5,6 +5,7 @@ from src.config import config
 from src.routers import turnos
 from src.routers import selfie
 from src.routers import usuarios
+from src.routers import recargas
 from src.routers import registros
 from src.routers import empleados
 from src.routers import almacenes
@@ -32,8 +33,9 @@ app = FastAPI(
 
 # API endpoints
 app.include_router(turnos.router)
-# app.include_router(selfie.router)
+app.include_router(selfie.router)
 app.include_router(usuarios.router)
+app.include_router(recargas.router)
 app.include_router(registros.router)
 app.include_router(empleados.router)
 app.include_router(almacenes.router)

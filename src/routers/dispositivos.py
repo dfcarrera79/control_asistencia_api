@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
 
 # Establish connections to PostgreSQL databases for "apromed"
-engine = create_engine(config.db_uri)
+engine = create_engine(config.db_uri2)
 
 # API Route Definitions
 router = fastapi.APIRouter()

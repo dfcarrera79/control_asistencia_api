@@ -10,8 +10,7 @@ from src.models.recarga_request import RecargaRequest
 
 
 # Establish connections to PostgreSQL databases for "apromed"
-engine = create_engine(config.db_uri)
-
+engine = create_engine(config.db_uri2)
 
 # API Route Definitions
 router = APIRouter()

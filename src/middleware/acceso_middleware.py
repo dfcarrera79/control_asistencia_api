@@ -2,7 +2,7 @@ from src.config import config
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-db_uri = config.db_uri
+db_uri = config.db_uri2
 engine = create_engine(db_uri)
 
 

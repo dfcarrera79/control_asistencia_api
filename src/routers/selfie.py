@@ -16,7 +16,7 @@ from fastapi import FastAPI, UploadFile, File
 
 
 # Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
-engine = create_engine(config.db_uri)
+engine = create_engine(config.db_uri2)
 
 # API Route Definitions
 router = fastapi.APIRouter()
