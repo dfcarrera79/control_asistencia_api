@@ -1,13 +1,13 @@
 import json
 import fastapi
 from fastapi import Request
-from config import config
+from src.config import config
 from sqlalchemy import create_engine
-from routers.controllers import SessionHandler
-from middleware import acceso_middleware
+from src.routers.controllers import SessionHandler
+from src.middleware import acceso_middleware
 
 # Establish connections to PostgreSQL databases for "reclamos" and "apromed" respectively
-engine = create_engine(config.db_uri2)
+engine = create_engine(config.db_uri)
 
 # API Route Definitions
 router = fastapi.APIRouter()
@@ -49,10 +49,7 @@ async def registrar_coordenadas(request: Request):
 async def actualizar_coordenadas(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
-    alm_codigo = data['alm_codigo']
-    lat = data['lat']
-    long = data['long']
-    sql = f"UPDATE rol.tcoordenadas SET lat = '{lat}', long = '{long}' WHERE alm_codigo = '{alm_codigo}' RETURNING codigo"
+    sql = f"UPDATE rol.tcoordenadas SET lat = '{data['lat']}', long = '{data['long']}' WHERE alm_codigo = '{data['alm_codigo']}' RETURNING codigo"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "Las coordenadas se han actualizado")
 
@@ -100,7 +97,7 @@ async def designar_lugar_empleado(request: Request):
 
 @router.get("/obtener_lugar_empleado")
 async def obtener_lugar_empleado(request: Request):
-    sql = f"SELECT talmacen.alm_nomcom AS lugares FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo"
+    sql = f"SELECT talmacen.alm_codigo, talmacen.alm_nomcom AS lugares FROM rol.tlugaresasignados INNER JOIN rol.tcoordenadas ON tcoordenadas.codigo = tlugaresasignados.coordenadas_codigo INNER JOIN comun.talmacen ON talmacen.alm_codigo = tcoordenadas.alm_codigo"
     token = request.headers.get('token')
     return query_handler.execute_sql_token(sql, token, "")
 

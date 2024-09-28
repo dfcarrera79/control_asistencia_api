@@ -1,11 +1,13 @@
+from src.utils import utils
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from middleware import token_middleware
+from src.middleware import token_middleware
 
 
 class SessionHandler:
     def __init__(self, engine):
         self.engine = engine
+
 
     def execute_sql(self, sql: str, mensaje: str):
         try:
@@ -15,7 +17,20 @@ class SessionHandler:
                 objetos = [row._asdict() for row in rows]
                 return {"error": "N", "mensaje": mensaje, "objetos": objetos}
         except Exception as error:
-            return {"error": "S", "mensaje": str(error), "objetos": ""}
+            return {"error": "S", "mensaje": str(error), "objetos": ""}   
+ 
+    
+    def obtener_empleado_app(self, sql: str, mensaje: str, mensaje_error: str):
+        try:
+            with Session(self.engine) as session:
+                rows = session.execute(text(sql)).fetchall()
+                session.commit()
+                objetos = [row._asdict() for row in rows]
+                if objetos[0]['codigo'] == 0:
+                    return {"error": "S", "mensaje": mensaje_error, "objetos": objetos}
+                return {"error": "N", "mensaje": mensaje, "objetos": objetos}
+        except Exception as error:
+            return {"error": "S", "mensaje": mensaje_error, "objetos": rows} 
 
     def execute_sql_token(self, sql: str, token, mensaje: str):
         try:
@@ -27,6 +42,7 @@ class SessionHandler:
                 return {"error": "N", "mensaje": mensaje, "objetos": objetos}
         except Exception as error:
             return {"error": "S", "mensaje": str(error), "objetos": ""}
+
 
     def get_exceptions(self, sql: str, token: str, desde: str, hasta: str):
         try:

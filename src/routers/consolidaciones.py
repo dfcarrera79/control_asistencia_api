@@ -1,14 +1,15 @@
 import json
 import fastapi
-from config import config
 from fastapi import Request
+from src.utils import utils
+from src.config import config
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
-from routers.controllers import SessionHandler
-from middleware import token_middleware, acceso_middleware
+from src.routers.controllers import SessionHandler
+from src.middleware import token_middleware, acceso_middleware
 
 # Establish connections to PostgreSQL databases for "apromed"
-engine = create_engine(config.db_uri2)
+engine = create_engine(config.db_uri)
 
 # API Route Definitions
 router = fastapi.APIRouter()
@@ -90,16 +91,19 @@ async def registrar_consolidacion(request: Request):
                 codigo_usuario = dato['codigo']
                 await registrar_detalle_cierre(codigo_cierre, normal, suplementaria, atrasos, codigo_usuario)
 
-            return {"error": "N", "mensaje": "Registro de consolidacién de mes exitoso", "objetos": objetos}
+            return {"error": "N", "mensaje": "Registro de consolidación de mes exitoso", "objetos": objetos}
 
     except Exception as error:
         return {"error": "S", "mensaje": str(error)}
 
 
 @router.get("/listar_consolidaciones")
-async def listar_consolidaciones(request: Request, mes: int, anio: int):
+async def listar_consolidaciones(request: Request, mes: str, anio: int):
     token = request.headers.get('token')
-    verifica_sql = f"SELECT codigo_cierre FROM rol.tcierremes WHERE mes = '{mes}' AND anio = '{anio}' AND anulado = 'N' "
+    
+    nuevo_mes = utils.obtener_numero_mes(mes)
+    
+    verifica_sql = f"SELECT codigo_cierre FROM rol.tcierremes WHERE mes = '{nuevo_mes}' AND anio = '{anio}' AND anulado = 'N' "
 
     try:
         token_middleware.verify_token(token)

@@ -1,12 +1,12 @@
 import json
 import fastapi
-from config import config
 from fastapi import Request
+from src.config import config
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, text
 
 # Establish connections to PostgreSQL databases for "apromed"
-engine = create_engine(config.db_uri2)
+engine = create_engine(config.db_uri)
 
 # API Route Definitions
 router = fastapi.APIRouter()
@@ -52,3 +52,30 @@ async def validar_dispositivo(id: str):
             return {"error": "N", "mensaje": "", "objetos": dispositivo[0]}
     except Exception as e:
         return {"error": "S", "mensaje": str(e)}
+    
+ 
+@router.get("/validar_dispositivo_master")
+async def validar_dispositivo_master(id: str, usuario_codigo: int):
+    sql = f"""
+    SELECT * 
+    FROM rol.tdispositivo 
+    WHERE 
+        (TRIM(id_dispositivo) = '{id.strip()}' AND usuario_codigo = '{usuario_codigo}')
+        OR 
+        (TRIM(id_dispositivo) = '{id.strip()}' AND es_master = TRUE)
+    """
+    try:
+        with Session(engine) as session:
+            rows = session.execute(text(sql)).fetchall()
+            if len(rows) == 0:
+                return {
+                    "error": "S",
+                    "mensaje": f"No se encuentra un dispositivo registrado con el id {id} en el sistema ",
+                    "objetos": rows,
+                }
+
+            dispositivo = [row._asdict() for row in rows]
+            return {"error": "N", "mensaje": "", "objetos": dispositivo[0]}
+    except Exception as e:
+        return {"error": "S", "mensaje": str(e)}    
+    
