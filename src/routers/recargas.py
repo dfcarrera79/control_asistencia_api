@@ -1,7 +1,6 @@
 import json
 import requests
 import xmltodict
-# from fastapi import Request
 from src.config import config
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Request
@@ -18,44 +17,74 @@ router = APIRouter()
 
 @router.post("/recargar")
 async def realizar_recarga(data: RecargaRequest):
-    # Convierte el objeto Python a un diccionario y luego a XML usando model_dump en lugar de dict
-    # transaccion_dict = data.model_dump()
-    transaccion_dict = data.dict()
+    # Convierte el objeto Python a un diccionario
+    peticion = data.peticionRequerimiento
+    print('[PETICION]: ', peticion.dict())
 
-    # Convierte el diccionario de la transacción a XML sin la declaración XML
-    transaccion_xml = xmltodict.unparse({"Transaccion": transaccion_dict}, pretty=False).replace(
-        '<?xml version="1.0" encoding="utf-8"?>', '')
+    xml_peticion = {
+        "peticionRequerimiento": {
+            "@xmlns": "http://tempuri.org/",
+            "tipoTransaccion": peticion.tipoTransaccion,
+            "codigoProceso": peticion.codigoProceso,
+            "monto": peticion.monto,
+            "cajero": peticion.cajero,
+            "clave": peticion.clave,
+            "tid": peticion.tid,
+            "mid": peticion.mid,
+            "proveedor": peticion.proveedor,
+            "servicio": peticion.servicio,
+            "cuenta": peticion.cuenta,
+            "autorizacion": peticion.autorizacion,
+            "referencia": peticion.referencia,
+            "lote": peticion.lote,
+            "sbContrapartidaNombre": peticion.sbContrapartidaNombre,
+            "sbCedula": peticion.sbCedula,
+            "sbDireccion": peticion.sbDireccion,
+            "sbTelefono": peticion.sbTelefono,
+            "sbReferencia": peticion.sbReferencia,
+            "sbReferenciaAdicional": peticion.sbReferenciaAdicional,
+            "sbCiudadCliente": peticion.sbCiudadCliente,
+            "sbCorreoDTV": peticion.sbCorreoDTV,
+            "modeloTerminal": peticion.modeloTerminal,
+        }
+    }
+
+    # Convierte el diccionario a XML sin la declaración XML
+    transaccion_xml = xmltodict.unparse(xml_peticion, pretty=False).replace('<?xml version="1.0" encoding="utf-8"?>', '')
 
     # Estructura el XML dentro del formato SOAP 1.1 esperado
     soap_envelope = f'''<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
         <soap:Body>
-            <datosInfo xmlns="http://tempuri.org/">
-                {transaccion_xml}
-            </datosInfo>
+            {transaccion_xml}
         </soap:Body>
     </soap:Envelope>'''
 
     url = "http://190.123.39.50/wsrecargas_test/wsrecargas.asmx"
     headers = {
         'Content-Type': 'text/xml; charset=utf-8',
-        'SOAPAction': '"http://tempuri.org/datosInfo"'
+        'SOAPAction': '"http://tempuri.org/peticionRequerimiento"'
     }
-
-    print('[SOAP REQUEST]: ', soap_envelope)
 
     # Envía la solicitud POST al servicio de recargas
     try:
         response = requests.post(url, data=soap_envelope, headers=headers)
         response.raise_for_status()
-
+        
         # Convierte la respuesta de XML a diccionario de Python
         response_data = xmltodict.parse(response.content)
 
-        return {"error": "N", "mensaje": "Solicitud procesada exitosamente", "datos": response_data}
+        # Extraer el resultado de la respuesta
+        peticion_result = response_data['soap:Envelope']['soap:Body']['peticionRequerimientoResponse']['peticionRequerimientoResult']
+        peticion_result_dict = xmltodict.parse(peticion_result)
+
+        return {
+            "error": "N", 
+            "mensaje": "Solicitud procesada exitosamente", 
+            "datos": peticion_result_dict['Transaccion']
+        }
 
     except requests.exceptions.RequestException as e:
-        # Manejo de errores para problemas de conexión o HTTP
         return {"error": "S", "mensaje": f"Error al conectar con el servicio de recargas: {str(e)}", "datos": ""}
 
 

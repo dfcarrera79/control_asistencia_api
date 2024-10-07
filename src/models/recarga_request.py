@@ -1,25 +1,28 @@
 from pydantic import BaseModel
 
-class Transaccion(BaseModel):
+class PeticionRequerimiento(BaseModel):
     tipoTransaccion: str
-    secuencial: str
-    lote: str
     codigoProceso: str
     monto: str
     cajero: str
-    claveCajero: str
-    terminalId: str
-    merchant: str
-    empresa: str
+    clave: str
+    tid: str
+    mid: str
+    proveedor: str
     servicio: str
-    telefono: str
-    autorizacion: str = ''
-    numeroCuenta: str = ''
-    numeroRecibo: str = ''
-    fechaDeposito: str = ''
-    cedula: str
-    nombres: str
-    direccion: str
+    cuenta: str
+    autorizacion: str
+    referencia: str
+    lote: str
+    sbContrapartidaNombre: str
+    sbCedula: str
+    sbDireccion: str
+    sbTelefono: str
+    sbReferencia: str
+    sbReferenciaAdicional: str
+    sbCiudadCliente: str
+    sbCorreoDTV: str
+    modeloTerminal: str
 
 class RecargaRequest(BaseModel):
-    Transaccion: Transaccion
+    peticionRequerimiento: PeticionRequerimiento
