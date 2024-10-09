@@ -10,17 +10,20 @@ from fastapi.security import HTTPBearer
 from datetime import datetime, timedelta, time
 from email.mime.multipart import MIMEMultipart
 
+
 def get_horarios(horarios: list):
     resultados = []
-            
+
     for subarreglo in horarios:
         for elemento in subarreglo:
             start = elemento["start"]
             title = elemento["title"]
-            time = elemento["time"] if elemento["time"] else ""  # Si time está vacío, asignar una cadena vacía
+            # Si time está vacío, asignar una cadena vacía
+            time = elemento["time"] if elemento["time"] else ""
             resultados.append([start, title, time])
-    
-    return resultados        
+
+    return resultados
+
 
 def nuevas_asistencias(asistencias: list, excepciones: list):
     nuevas_asistencias = []
@@ -28,8 +31,9 @@ def nuevas_asistencias(asistencias: list, excepciones: list):
         fecha = diccionario['entrada'].strftime('%Y/%m/%d')
         if fecha not in excepciones and diccionario['salida'] is not None:
             nuevas_asistencias.append(diccionario)
-            
-    return nuevas_asistencias        
+
+    return nuevas_asistencias
+
 
 def obtener_fechas(fecha_desde, fecha_hasta):
     fecha_desde_dt = datetime.strptime(fecha_desde, '%Y/%m/%d')
@@ -47,7 +51,7 @@ def obtener_fechas(fecha_desde, fecha_hasta):
         fin = mes_hasta + 1 if año == año_hasta else 13
         for mes in range(inicio, fin):
             fechas.append([mes, año])
-    
+
     return fechas
 
 
@@ -166,7 +170,7 @@ def calcular_horas(fecha, jornada, inicio1, fin1, inicio2, fin2, entrada, salida
         fin_fecha = datetime.combine(fecha, fin2)
     else:
         return 0  # Si la jornada no es 1 o 2, no se computan horas
-    
+
     # Ajustar la hora de entrada si es anterior al inicio de la jornada
     if entrada < inicio_fecha:
         tiempo_diferencia = inicio_fecha - entrada
@@ -248,10 +252,11 @@ def obtener_numero_mes(mes):
 def time_to_seconds(time_str: str):
     # Split the string into hours and minutes
     hours, minutes = map(int, time_str.split(':'))
-    
+
     # Calculate the total seconds
     total_seconds = hours * 3600 + minutes * 60
     return total_seconds
+
 
 def datetime_to_seconds(datetime_str: datetime.time):
     # Convert the datetime string to a datetime object
@@ -259,19 +264,41 @@ def datetime_to_seconds(datetime_str: datetime.time):
     minutes = datetime_str.minute
     seconds = datetime_str.second
     microseconds = datetime_str.microsecond
-    
+
     # Calculate the total seconds
     total_seconds = hours * 3600 + minutes * 60 + seconds + microseconds / 1e6
-    
+
     return total_seconds
+
 
 def construir_condiciones_where(departamento: str, desde: str, hasta: str):
     condiciones = []
-    
+
     if departamento not in [None, '', 'N']:
         condiciones.append(f"TPlantillaRol.descripcion LIKE '{departamento}'")
 
     if desde not in [None, '', 'N'] and hasta not in [None, '', 'N']:
-        condiciones.append(f"CAST(TS.fecha as date) BETWEEN '{desde}' AND '{hasta}'")
-    
+        condiciones.append(
+            f"CAST(TS.fecha as date) BETWEEN '{desde}' AND '{hasta}'")
+
     return condiciones
+
+
+def get_element(data):
+    # Prioridad 1: Email y celular no están vacíos
+    for item in data:
+        if item["email"] and item["celular"]:
+            return item
+
+    # Prioridad 2: Solo email está presente
+    for item in data:
+        if item["email"]:
+            return item
+
+    # Prioridad 3: Solo celular está presente
+    for item in data:
+        if item["celular"]:
+            return item
+
+    # Prioridad 4: Ni email ni celular están presentes
+    return data[-1] if data else None

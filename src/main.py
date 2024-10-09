@@ -3,7 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from src.config import config
 from src.routers import turnos
-from src.routers import selfie
+# from src.routers import selfie
 from src.routers import usuarios
 from src.routers import recargas
 from src.routers import registros
@@ -33,7 +33,7 @@ app = FastAPI(
 
 # API endpoints
 app.include_router(turnos.router)
-app.include_router(selfie.router)
+# app.include_router(selfie.router)
 app.include_router(usuarios.router)
 app.include_router(recargas.router)
 app.include_router(registros.router)

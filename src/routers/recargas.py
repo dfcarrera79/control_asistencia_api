@@ -1,10 +1,13 @@
 import json
 import requests
 import xmltodict
+from src.utils import utils
 from src.config import config
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Request
+from src.middleware import token_middleware
 from sqlalchemy import create_engine, text
+from src.routers.controllers import SessionHandler
 from src.models.recarga_request import RecargaRequest
 
 
@@ -14,12 +17,14 @@ engine = create_engine(config.db_uri2)
 # API Route Definitions
 router = APIRouter()
 
+# Crear una instancia de la clase con tu motor de base de datos
+query_handler = SessionHandler(engine)
+
 
 @router.post("/recargar")
 async def realizar_recarga(data: RecargaRequest):
     # Convierte el objeto Python a un diccionario
     peticion = data.peticionRequerimiento
-    print('[PETICION]: ', peticion.dict())
 
     xml_peticion = {
         "peticionRequerimiento": {
@@ -50,7 +55,8 @@ async def realizar_recarga(data: RecargaRequest):
     }
 
     # Convierte el diccionario a XML sin la declaración XML
-    transaccion_xml = xmltodict.unparse(xml_peticion, pretty=False).replace('<?xml version="1.0" encoding="utf-8"?>', '')
+    transaccion_xml = xmltodict.unparse(xml_peticion, pretty=False).replace(
+        '<?xml version="1.0" encoding="utf-8"?>', '')
 
     # Estructura el XML dentro del formato SOAP 1.1 esperado
     soap_envelope = f'''<?xml version="1.0" encoding="utf-8"?>
@@ -70,17 +76,18 @@ async def realizar_recarga(data: RecargaRequest):
     try:
         response = requests.post(url, data=soap_envelope, headers=headers)
         response.raise_for_status()
-        
+
         # Convierte la respuesta de XML a diccionario de Python
         response_data = xmltodict.parse(response.content)
 
         # Extraer el resultado de la respuesta
-        peticion_result = response_data['soap:Envelope']['soap:Body']['peticionRequerimientoResponse']['peticionRequerimientoResult']
+        peticion_result = response_data['soap:Envelope']['soap:Body'][
+            'peticionRequerimientoResponse']['peticionRequerimientoResult']
         peticion_result_dict = xmltodict.parse(peticion_result)
 
         return {
-            "error": "N", 
-            "mensaje": "Solicitud procesada exitosamente", 
+            "error": "N",
+            "mensaje": "Solicitud procesada exitosamente",
             "datos": peticion_result_dict['Transaccion']
         }
 
@@ -102,7 +109,6 @@ async def registrar_recarga(request: Request):
             '{data['fecha']}', '{data['hora']}', {data['pvp']}, {data['referencia']}, '{data['iso']}', '{data['telefono']}', '{data['codigo_proveedor']}', '{data['codigo_producto']}'
         ) RETURNING codigo
         """
-        print('[SQL]: ', sql)
         with Session(engine) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
@@ -110,3 +116,42 @@ async def registrar_recarga(request: Request):
             return {"error": "N", "mensaje": "Registro de recarga exitoso", "objetos": objetos}
     except Exception as error:
         return {"error": "S", "mensaje": str(error)}
+
+
+@router.get("/datos_factura")
+async def datos_factura(request: Request, ced_ruc: str):
+
+    # if len(ced_ruc) == 13:
+    #     ced_ruc = ced_ruc[:10]
+    token = request.headers.get('token')
+    sql = f"""
+    SELECT clp_codigo, clp_cedruc, clp_descri, clp_calles, email, celular
+    FROM referente.treferente
+    WHERE clp_cedruc LIKE '%' || '{ced_ruc}' || '%' 
+    """
+
+    try:
+        token_middleware.verify_token(token)
+        with Session(engine) as session:
+            rows = session.execute(text(sql)).fetchall()
+            if len(rows) == 0:
+                return {"error": "S", "mensaje": "No se encontraron datos de factura"}
+            session.commit()
+            objetos = [row._asdict() for row in rows]
+            resultado = utils.get_element(objetos)
+            return {"error": "N", "mensaje": "Datos de factura", "objetos": resultado}
+    except Exception as error:
+        return {"error": "S", "mensaje": str(error)}
+
+
+@router.put("/registrar_factura")
+async def registrar_recarga(request: Request):
+    request_body = await request.body()
+    data = json.loads(request_body)
+    token = request.headers.get('token')
+
+    factura_text = f"clp_codigo: {data['codigo']}\nced_ruc: {data['ced_ruc']}\nclp_descri: {data['clp_descri']}\nclp_calles: {data['clp_calles']}\ncelular: {data['celular']}\nemail: {data['email']}"
+
+    sql = f"UPDATE comun.trecargas SET detalle_factura = '{json.dumps(factura_text)}', trn_codigo = {data['trn_codigo']} WHERE codigo = {data['codigo']} RETURNING codigo"
+
+    return query_handler.execute_sql_token(sql, token, "Factura generada con éxito.")
