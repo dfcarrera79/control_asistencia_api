@@ -2,6 +2,7 @@ import json
 import requests
 import xmltodict
 from src.utils import utils
+from datetime import datetime
 from src.config import config
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, Request
@@ -10,20 +11,18 @@ from sqlalchemy import create_engine, text
 from src.routers.controllers import SessionHandler
 from src.models.recarga_request import RecargaRequest
 
-
 # Establish connections to PostgreSQL databases for "apromed"
 engine = create_engine(config.db_uri2)
-
-# API Route Definitions
-router = APIRouter()
 
 # Crear una instancia de la clase con tu motor de base de datos
 query_handler = SessionHandler(engine)
 
+# API Route Definitions
+router = APIRouter()
+
 
 @router.post("/recargar")
 async def realizar_recarga(data: RecargaRequest):
-    # Convierte el objeto Python a un diccionario
     peticion = data.peticionRequerimiento
 
     xml_peticion = {
@@ -100,19 +99,28 @@ async def registrar_recarga(request: Request):
     request_body = await request.body()
     data = json.loads(request_body)
 
+    # Generar lote, fecha y hora con la fecha actual
+    lote = datetime.now().strftime("%y%m%d")
+    fecha = datetime.now().strftime("%Y-%m-%d")  # YYYY-MM-DD
+    hora = datetime.now().strftime("%H:%M:%S")  # HH:MM:SS
+
     try:
         sql = f"""
         INSERT INTO comun.trecargas (
             grupo, cadena, comercio, proveedor, producto, lote, pos, cajero,
             fecha, hora, pvp, referencia, iso, telefono, codigo_proveedor, codigo_producto
-        ) VALUES ('{data['grupo']}', '{data['cadena']}', '{data['comercio']}', '{data['proveedor']}', '{data['producto']}', '{data['lote']}', '{data['pos']}', '{data['cajero']}',
-            '{data['fecha']}', '{data['hora']}', {data['pvp']}, {data['referencia']}, '{data['iso']}', '{data['telefono']}', '{data['codigo_proveedor']}', '{data['codigo_producto']}'
+        ) VALUES ('{data['grupo']}', '{data['cadena']}', '{data['comercio']}', '{data['proveedor']}', '{data['producto']}', '{lote}', '{data['pos']}', '{data['cajero']}',
+            '{fecha}', '{hora}', {data['pvp']}, {data['referencia']}, '{data['iso']}', '{data['telefono']}', '{data['codigo_proveedor']}', '{data['codigo_producto']}'
         ) RETURNING codigo
         """
         with Session(engine) as session:
             rows = session.execute(text(sql)).fetchall()
             session.commit()
             objetos = [row._asdict() for row in rows]
+            # Añadir lote, fecha y hora a cada objeto retornado
+            for obj in objetos:
+                obj.update({"lote": lote, "fecha": fecha, "hora": hora})
+
             return {"error": "N", "mensaje": "Registro de recarga exitoso", "objetos": objetos}
     except Exception as error:
         return {"error": "S", "mensaje": str(error)}
@@ -152,6 +160,21 @@ async def registrar_recarga(request: Request):
 
     factura_text = f"clp_codigo: {data['codigo']}\nced_ruc: {data['ced_ruc']}\nclp_descri: {data['clp_descri']}\nclp_calles: {data['clp_calles']}\ncelular: {data['celular']}\nemail: {data['email']}"
 
-    sql = f"UPDATE comun.trecargas SET detalle_factura = '{json.dumps(factura_text)}', trn_codigo = {data['trn_codigo']} WHERE codigo = {data['codigo']} RETURNING codigo"
+    # Inicia la construcción de la consulta SQL
+    sql = f"UPDATE comun.trecargas SET detalle_factura = '{json.dumps(factura_text)}', autorizacion = {data['autorizacion']}"
+
+    # Agrega el trn_codigo solo si no es 0
+    if data['trn_codigo'] != 0:
+        sql += f", trn_codigo = {data['trn_codigo']}"
+
+    # Completa la consulta con la cláusula WHERE
+    sql += f" WHERE codigo = {data['codigo']} RETURNING codigo"
 
     return query_handler.execute_sql_token(sql, token, "Factura generada con éxito.")
+
+
+@router.get("/listar_conciliaciones")
+async def listar_conciliaciones(request: Request, fecha: str):
+    token = request.headers.get('token')
+    sql = f"SELECT codigo, grupo, cadena, comercio, proveedor, producto, lote, pos, cajero, fecha, hora, pvp, autorizacion, referencia, iso, telefono, codigo_proveedor, codigo_producto FROM comun.trecargas WHERE trn_codigo IS NOT NULL and fecha = '{fecha}'"
+    return query_handler.execute_sql_token(sql, token, "")
